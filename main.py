@@ -13,11 +13,22 @@ from logic import round_manager
 
 active_rooms: Dict[str, Room] = {}
 
+def assign_new_host(room: Room):
+    if room.host in room.players:
+        return
+    if room.players:
+        room.host = next(iter(room.players.keys()))
+    else:
+        room.host = ""
+
 async def room_cleaner():
     while True:
         await asyncio.sleep(60)
         now = time.time()
-        stale_rooms = [code for code, r in active_rooms.items() if now - r.last_activity > 300]
+        stale_rooms = [
+            code for code, r in active_rooms.items()
+            if now - r.last_activity > 300 and not any(p.connected for p in r.players.values())
+        ]
         for code in stale_rooms:
             del active_rooms[code]
 
@@ -133,6 +144,7 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
 
     if player_name in room.players:
         room.players[player_name].ws = websocket
+        room.players[player_name].connected = True
         player = room.players[player_name]
     else:
         role = "audience" if len(room.get_active_players()) >= 15 else "active"
@@ -157,8 +169,10 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
                     target_name = payload.word 
                     if target_name in room.players and target_name != room.host:
                         target_player = room.players[target_name]
+                        target_player.connected = False
                         room.banned_names.append(target_name)
                         del room.players[target_name]
+                        assign_new_host(room)
                         try:
                             await target_player.ws.send_json({"action": "rejected", "message": "Kicked by host."})
                             await target_player.ws.close()
@@ -168,6 +182,9 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
                 elif payload.action == "lock_trap" and player.is_dealer:
                     if room.phase == "trap_phase" and payload.prompt and payload.word:
                         decoy = getattr(payload, "decoy", "") # Safely get decoy
+                        if decoy and round_manager.is_match(payload.word, decoy):
+                            await websocket.send_json({"action": "rejected", "message": "Decoy cannot match the trap word."})
+                            continue
                         round_manager.advance_to_response_phase(room, payload.prompt, payload.word, decoy)
                         
                         new_deadline = time.time() + 10 
@@ -177,6 +194,9 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
                 
                 elif payload.action == "update_decoy" and player.is_dealer:
                     if room.phase == "response_phase" and payload.word:
+                        if round_manager.is_match(payload.word, room.trap_word):
+                            await websocket.send_json({"action": "rejected", "message": "Decoy cannot match the trap word."})
+                            continue
                         room.decoy_word = payload.word.strip()
                         await websocket.send_json({"action": "success", "message": "Decoy updated!"})
                         # Don't broadcast, it's a secret
@@ -213,7 +233,7 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
                         await broadcast_state(room)
 
                 elif payload.action == "toggle_veto" and room.phase == "tribunal":
-                    if payload.word:
+                    if payload.word and player.role == "active" and payload.word in room.words_to_vote:
                         word = payload.word
                         if word not in room.veto_votes:
                             room.veto_votes[word] = []
@@ -250,4 +270,10 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
                 traceback.print_exc()
 
     except WebSocketDisconnect:
-        pass
+        player.connected = False
+        room.last_activity = time.time()
+        
+        if room.host == player.name:
+            assign_new_host(room)
+            
+        await broadcast_state(room)

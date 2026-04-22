@@ -6,6 +6,7 @@ class Player:
     def __init__(self, name: str, ws: WebSocket, role: str = "active"):
         self.name = name
         self.ws = ws
+        self.connected: bool = True
         self.score: int = 0
         self.streak: int = 0 
         self.role: str = role 

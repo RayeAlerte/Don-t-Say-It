@@ -181,6 +181,43 @@
             document.querySelectorAll("#toast, .dealer-toast").forEach(el => el.innerText = msg);
             setTimeout(() => document.querySelectorAll("#toast, .dealer-toast").forEach(el => el.innerText = ""), 3000);
         }
+        
+        function squashWord(word) {
+            if (!word) return "";
+            return word.toLowerCase().replace(/[^a-z0-9]/g, "");
+        }
+        
+        function levenshtein(s1, s2) {
+            if (s1.length < s2.length) return levenshtein(s2, s1);
+            if (s2.length === 0) return s1.length;
+            
+            let previousRow = Array.from({length: s2.length + 1}, (_, i) => i);
+            for (let i = 0; i < s1.length; i++) {
+                let currentRow = [i + 1];
+                for (let j = 0; j < s2.length; j++) {
+                    let insertions = previousRow[j + 1] + 1;
+                    let deletions = currentRow[j] + 1;
+                    let substitutions = previousRow[j] + (s1[i] !== s2[j] ? 1 : 0);
+                    currentRow.push(Math.min(insertions, deletions, substitutions));
+                }
+                previousRow = currentRow;
+            }
+            return previousRow[previousRow.length - 1];
+        }
+        
+        function isMatch(word1, word2) {
+            let w1 = squashWord(word1);
+            let w2 = squashWord(word2);
+            if (!w1 || !w2) return false;
+            if (w1 === w2) return true;
+            
+            let dist = levenshtein(w1, w2);
+            let length = Math.min(w1.length, w2.length);
+            if (length <= 4 && dist === 0) return true;
+            if (length >= 5 && length <= 8 && dist <= 1) return true;
+            if (length >= 9 && dist <= 2) return true;
+            return false;
+        }
 
         function connect() {
             myRoom = document.getElementById("roomCode").value.toUpperCase();
@@ -377,8 +414,8 @@
 
                     // 1. Survival Check
                     let isMindReader = pData && pData.mind_reader;
-                    let isTrapped = pWord.toLowerCase() === state.trap_word.toLowerCase();
-                    let isVetoed = state.vetoed_words.includes(pWord);
+                    let isTrapped = isMatch(pWord, state.trap_word);
+                    let isVetoed = state.vetoed_words.some(v => isMatch(pWord, v));
 
                     if (pData && pData.timed_out) {
                         logs.push("<span style='color:#e53e3e'>🌽 AFK (0 pts)</span>");
@@ -400,7 +437,7 @@
 
                     // 2. Bounty Check
                     let bounty = state.revealed_bounties[pName];
-                    if (bounty && bounty.toLowerCase() === state.trap_word.toLowerCase()) {
+                    if (bounty && isMatch(bounty, state.trap_word)) {
                         pointsEarned += 1;
                         logs.push("<span style='color:#38a169'>🎯 BOUNTY (+1 pt)</span>");
                     }

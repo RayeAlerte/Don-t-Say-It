@@ -10,14 +10,22 @@ def load_prompts():
     global PROMPTS_DB
     PROMPTS_DB = []
     try:
-        with open("Prompts.txt", "r") as f:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        project_dir = os.path.dirname(base_dir)
+        prompt_candidates = [
+            os.path.join(project_dir, "prompts.txt"),
+            os.path.join(project_dir, "Prompts.txt")
+        ]
+        prompt_path = next((path for path in prompt_candidates if os.path.exists(path)), prompt_candidates[0])
+        
+        with open(prompt_path, "r") as f:
             lines = [line.strip() for line in f.readlines() if line.strip()]
             for i in range(0, len(lines), 2):
                 prompt = lines[i]
                 traps = [t.strip() for t in lines[i+1].split(",")]
                 PROMPTS_DB.append({"prompt": prompt, "traps": traps})
     except Exception as e:
-        print("Could not load Prompts.txt. Using fallback.")
+        print("Could not load prompts.txt. Using fallback.")
         PROMPTS_DB = [{"prompt": "Name a fast food chain.", "traps": ["mcdonalds", "wendys"]}]
 
 load_prompts()
@@ -112,9 +120,10 @@ def advance_to_tribunal(room: Room):
 def resolve_round(room: Room):
     room.phase = "reveal"
     dealer = room.players[room.current_dealer]
+    zero_point_players = set()
     
     # 1. Tally Tribunal Votes (>50% Rule)
-    total_voters = len(room.get_active_players()) + 1 # Active players + Dealer
+    total_voters = len(room.get_active_players())
     threshold = total_voters / 2
     
     for word, voters in room.veto_votes.items():
@@ -141,6 +150,7 @@ def resolve_round(room: Room):
             if is_match(p.locked_word, room.trap_word):
                 dealer.score += 1 
                 p.streak = 0 
+                zero_point_players.add(p.name)
             elif is_mind_reader:
                 # The Alliance! They survive even if vetoed
                 p.score += 1
@@ -148,12 +158,19 @@ def resolve_round(room: Room):
                 p.mind_reader = True
             elif is_vetoed:
                 p.streak = 0 # 0 points
+                zero_point_players.add(p.name)
             elif not p.timed_out:
                 p.score += 1 
                 p.streak += 1 
+            else:
+                zero_point_players.add(p.name)
             
         # Bounties
-        if p.bounty_guess and is_match(p.bounty_guess, room.trap_word):
+        can_score_bounty = (
+            p.role == "audience" or
+            (p.role == "active" and p.name not in zero_point_players)
+        )
+        if can_score_bounty and p.bounty_guess and is_match(p.bounty_guess, room.trap_word):
             p.score += 1 
             dealer.score += 1 
 
