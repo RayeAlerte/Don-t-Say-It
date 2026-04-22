@@ -24,3 +24,103 @@ Name a piece of living room furniture.
 sofa, couch, chair, table, rug, lamp, tv
 Name a popular social media app.
 facebook, instagram, tiktok, twitter, snapchat, reddit
+Name a genre of movie.
+action, comedy, horror, drama, romance, thriller, animation, documentary, sci-fi, fantasy
+What kind of music might you hear at a wedding?
+pop, jazz, classical, soul, rock, waltz, ballad, country, r&b, swing
+A musician walks on stage. What might they be carrying?
+guitar, microphone, violin, trumpet, drum sticks, bass, keyboard, flute, saxophone, cello
+Name a type of dance.
+ballet, salsa, hip hop, waltz, tango, breakdancing, flamenco, tap, jazz, swing
+What instrument would you find in an orchestra?
+violin, cello, flute, trumpet, oboe, clarinet, harp, trombone, french horn, timpani
+You're at a concert. What do you see around you?
+crowd, stage, speakers, lights, screens, security, merchandise, barriers, cameras, smoke machine
+What genre of music gets people moving on a dance floor?
+pop, hip hop, dance, electronic, reggaeton, disco, house, funk, techno, latin
+Name a type of TV show.
+drama, comedy, documentary, reality, news, thriller, animation, talk show, game show, soap opera
+What do people do to celebrate at a party?
+dance, sing, eat, drink, laugh, play games, take photos, toast, hug, cheer
+What would you find inside a movie theater?
+seats, screen, popcorn, projector, speakers, lights, exit signs, curtains, ticket booth, concessions
+Name a fruit you'd find in almost any country.
+apple, banana, orange, mango, grape, lemon, pineapple, watermelon, strawberry, pear
+What's a vegetable most people have eaten?
+carrot, potato, tomato, onion, broccoli, cucumber, spinach, garlic, pepper, corn
+How might a chef cook a piece of meat?
+grill, fry, roast, bake, steam, boil, smoke, sear, poach, barbecue
+What's a hot drink people have in the morning?
+coffee, tea, espresso, cappuccino, hot chocolate, matcha, chai, americano, latte, herbal tea
+Name a type of bread.
+white, whole wheat, sourdough, rye, pita, baguette, naan, ciabatta, focaccia, brioche
+What spice or herb is commonly used in cooking?
+salt, pepper, garlic, cumin, paprika, ginger, turmeric, cinnamon, basil, oregano
+Name a type of soup.
+tomato, chicken, vegetable, minestrone, lentil, pea, onion, miso, ramen, pumpkin
+What would you put inside a sandwich?
+cheese, tomato, lettuce, ham, chicken, tuna, egg, avocado, bacon, cucumber
+Name a dessert eaten around the world.
+ice cream, cake, chocolate, cookies, pie, pudding, brownie, donut, cheesecake, crepe
+What's a cold drink you'd order on a hot day?
+water, juice, lemonade, iced tea, soda, smoothie, milkshake, cola, coconut water, beer
+Name a sport played with a ball.
+football, basketball, tennis, volleyball, rugby, cricket, baseball, golf, handball, water polo
+What might an athlete wear during competition?
+jersey, shorts, trainers, helmet, gloves, cleats, cap, swimsuit, goggles, shin guards
+Name a water sport.
+swimming, surfing, rowing, kayaking, water polo, diving, sailing, windsurfing, snorkeling, waterskiing
+What sport would you see at the Winter Olympics?
+skiing, snowboarding, ice skating, hockey, biathlon, bobsled, luge, curling, ski jumping, speed skating
+Name a martial art.
+karate, judo, taekwondo, kung fu, boxing, wrestling, jiu-jitsu, muay thai, aikido, capoeira
+What piece of equipment might a player carry onto a field?
+ball, racket, bat, stick, helmet, gloves, pads, net, clubs, javelin
+Name a sport played on a court.
+tennis, basketball, volleyball, badminton, squash, handball, netball, racquetball, padel, pickleball
+What do athletes do to stay in shape?
+run, lift weights, swim, stretch, cycle, practice, diet, rest, train, sprint
+Name a team sport played around the world.
+football, basketball, volleyball, rugby, cricket, hockey, handball, baseball, water polo, rowing
+What sport can be played both solo and in teams?
+tennis, swimming, cycling, golf, rowing, archery, athletics, sailing, gymnastics, boxing
+Name a wild animal found on multiple continents.
+lion, wolf, bear, fox, eagle, deer, rabbit, crocodile, snake, monkey
+What's a type of weather that disrupts daily life?
+storm, flood, snow, fog, hail, hurricane, tornado, blizzard, drought, heatwave
+Look up at the night sky — what do you see?
+stars, moon, clouds, planets, satellites, meteors, constellations, darkness, aurora, comets
+Name a natural disaster.
+earthquake, flood, hurricane, tornado, tsunami, wildfire, volcano, avalanche, drought, landslide
+What creature lives in the ocean?
+shark, whale, dolphin, octopus, crab, jellyfish, seahorse, turtle, squid, clownfish
+Name an insect most people have encountered.
+ant, mosquito, fly, bee, wasp, butterfly, cockroach, beetle, moth, cricket
+What kind of tree might you find in a forest?
+oak, pine, birch, maple, cedar, fir, spruce, willow, ash, beech
+Name a bird found in multiple parts of the world.
+eagle, pigeon, sparrow, crow, parrot, owl, flamingo, duck, seagull, pelican
+What would you find if you walked into a forest?
+trees, leaves, birds, insects, mushrooms, streams, moss, deer, fallen logs, shadows
+Name a type of landform found on Earth.
+mountain, valley, desert, island, plateau, canyon, plain, peninsula, glacier, cliff
+How might someone get from one city to another?
+train, plane, car, bus, ferry, motorcycle, bicycle, taxi, truck, walking
+Name a profession almost every town or city needs.
+doctor, teacher, police officer, firefighter, nurse, plumber, electrician, chef, postman, mechanic
+What would you find in almost any kitchen?
+knife, pan, oven, fridge, sink, plates, cups, spoon, cutting board, kettle
+Name a piece of clothing worn in cold weather.
+coat, scarf, gloves, hat, boots, sweater, jacket, thermal, earmuffs, hoodie
+What do you pack when going on a trip?
+clothes, toothbrush, passport, phone, charger, shoes, camera, money, sunscreen, medication
+What subject might students study at school?
+math, science, history, geography, english, art, music, physical education, languages, biology
+What would you find inside a hospital?
+beds, doctors, nurses, medicine, equipment, wheelchairs, waiting room, x-ray, reception, ambulance
+Name a tool used for building or fixing things.
+hammer, screwdriver, drill, saw, wrench, tape measure, level, pliers, chisel, nail gun
+What do people do to unwind after a long day?
+watch tv, read, cook, exercise, meditate, bath, listen to music, walk, sleep, socialize
+What's something most people do within an hour of waking up?
+shower, brush teeth, eat breakfast, drink coffee, check phone, get dressed, exercise, make bed, wash face, go to work
