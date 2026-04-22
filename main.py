@@ -12,6 +12,9 @@ from Models.payloads import ActionPayload
 from logic import round_manager
 
 active_rooms: Dict[str, Room] = {}
+MAX_LATENCY_COMP_MS = 400.0
+LATENCY_GRACE_BASE_S = 0.08
+LATENCY_GRACE_CAP_S = 0.35
 
 def assign_new_host(room: Room):
     if room.host in room.players:
@@ -109,6 +112,8 @@ async def broadcast_state(room: Room):
                 "caught": getattr(p, 'caught_in_honeypot', False),
                 "mind_reader": getattr(p, 'mind_reader', False),
                 "timed_out": getattr(p, 'timed_out', False),
+                "vote_accuracy_hits": getattr(p, 'vote_accuracy_hits', 0),
+                "vote_accuracy_total": getattr(p, 'vote_accuracy_total', 0),
                 "my_vetoes": [w for w, voters in room.veto_votes.items() if p.name in voters]
             } for p in room.players.values()
         ]
@@ -120,6 +125,7 @@ async def broadcast_state(room: Room):
         state["vetoed_words"] = room.vetoed_words
         state["revealed_words"] = {p.name: p.locked_word for p in room.players.values() if not p.is_dealer and getattr(p, 'role', 'active') == "active"}
         state["revealed_bounties"] = {p.name: p.bounty_guess for p in room.players.values() if not p.is_dealer and p.bounty_guess}
+        state["vote_accuracy_round"] = room.vote_accuracy_round
 
     for player in room.players.values():
         try:
@@ -206,16 +212,44 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
                         word = payload.word.strip()[:25]
                         is_taken = False
                         thief = ""
+                        steal_from = None
+                        now = time.time()
+                        player_adjusted_time = now - min(player.latency_ms, MAX_LATENCY_COMP_MS) / 1000
                         for locked_word, user in room.locked_words.items():
                             if round_manager.is_match(word, locked_word):
-                                is_taken = True
-                                thief = user
+                                holder = room.players.get(user)
+                                if not holder:
+                                    continue
+                                
+                                holder_time = room.lock_times.get(locked_word, now)
+                                holder_adjusted_time = holder_time - min(holder.latency_ms, MAX_LATENCY_COMP_MS) / 1000
+                                dynamic_grace = min(
+                                    LATENCY_GRACE_CAP_S,
+                                    LATENCY_GRACE_BASE_S + abs(player.latency_ms - holder.latency_ms) / 1000
+                                )
+                                
+                                if player_adjusted_time + dynamic_grace < holder_adjusted_time:
+                                    steal_from = (locked_word, holder)
+                                else:
+                                    is_taken = True
+                                    thief = user
                                 break
                                 
                         if is_taken:
                             await websocket.send_json({"action": "rejected", "message": f"Too slow! '{thief}' took something similar."})
                         else:
+                            if steal_from:
+                                old_word, holder = steal_from
+                                room.locked_words.pop(old_word, None)
+                                room.lock_times.pop(old_word, None)
+                                holder.locked_word = None
+                                try:
+                                    await holder.ws.send_json({"action": "rejected", "message": "Your lock was displaced by latency compensation. Lock a new safe word!"})
+                                except Exception:
+                                    pass
+                            
                             room.locked_words[word] = player.name
+                            room.lock_times[word] = now
                             player.locked_word = word
                             await websocket.send_json({"action": "success", "message": "Word locked!"})
                             
@@ -228,9 +262,20 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
 
                 elif payload.action == "bounty_guess" and not player.is_dealer:
                     if room.phase == "response_phase" and player.bounty_guess is None and payload.word:
+                        if player.role == "active" and player.locked_word is None:
+                            await websocket.send_json({"action": "rejected", "message": "Lock a safe word before submitting bounty."})
+                            continue
                         player.bounty_guess = payload.word.strip()[:25]
                         await websocket.send_json({"action": "success", "message": "Bounty guess locked!"})
                         await broadcast_state(room)
+                
+                elif payload.action == "ping_probe":
+                    await websocket.send_json({"action": "pong_probe", "client_ts": payload.client_ts})
+                
+                elif payload.action == "latency_update":
+                    if payload.latency_ms is not None:
+                        sample = max(0.0, min(float(payload.latency_ms), MAX_LATENCY_COMP_MS))
+                        player.latency_ms = (player.latency_ms * 0.7) + (sample * 0.3)
 
                 elif payload.action == "toggle_veto" and room.phase == "tribunal":
                     if payload.word and player.role == "active" and payload.word in room.words_to_vote:

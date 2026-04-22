@@ -3,6 +3,8 @@ import random
 import re
 import os
 
+DEALER_BOUNTY_CAP = 2
+
 # --- Load Prompts from TXT ---
 PROMPTS_DB = []
 
@@ -121,6 +123,8 @@ def resolve_round(room: Room):
     room.phase = "reveal"
     dealer = room.players[room.current_dealer]
     zero_point_players = set()
+    dealer_bounty_awards = 0
+    room.vote_accuracy_round = {}
     
     # 1. Tally Tribunal Votes (>50% Rule)
     total_voters = len(room.get_active_players())
@@ -138,6 +142,26 @@ def resolve_round(room: Room):
             if voter_name in room.players:
                 room.players[voter_name].score -= 1
                 room.players[voter_name].caught_in_honeypot = True
+    
+    # 2.5 Vote Accuracy Tracking
+    for p in room.get_active_players().values():
+        votes = [word for word, voters in room.veto_votes.items() if p.name in voters]
+        accurate = 0
+        for voted_word in votes:
+            voted_decoy = room.decoy_word and is_match(voted_word, room.decoy_word)
+            voted_vetoed = any(is_match(voted_word, w) for w in room.vetoed_words)
+            if voted_vetoed and not voted_decoy:
+                accurate += 1
+        
+        if votes:
+            p.vote_accuracy_hits += accurate
+            p.vote_accuracy_total += len(votes)
+        
+        room.vote_accuracy_round[p.name] = {
+            "hits": accurate,
+            "total": len(votes),
+            "rate": (accurate / len(votes)) if votes else 0
+        }
 
     # 3. Standard Scoring
     for p in room.players.values():
@@ -172,7 +196,9 @@ def resolve_round(room: Room):
         )
         if can_score_bounty and p.bounty_guess and is_match(p.bounty_guess, room.trap_word):
             p.score += 1 
-            dealer.score += 1 
+            if dealer_bounty_awards < DEALER_BOUNTY_CAP:
+                dealer.score += 1
+                dealer_bounty_awards += 1
 
 def next_round(room: Room):
     if room.current_round >= room.round_limit:
@@ -185,9 +211,11 @@ def next_round(room: Room):
     room.trap_word = ""
     room.decoy_word = ""
     room.locked_words.clear()
+    room.lock_times.clear()
     room.words_to_vote.clear()
     room.veto_votes.clear()
     room.vetoed_words.clear()
+    room.vote_accuracy_round = {}
     
     for p in room.players.values():
         p.reset_for_round()
@@ -203,6 +231,8 @@ def play_again(room: Room):
     room.prompt = ""
     room.trap_word = ""
     room.locked_words.clear()
+    room.lock_times.clear()
+    room.vote_accuracy_round = {}
     
     active_players = room.get_active_players()
     room.round_limit = len(active_players)
@@ -224,6 +254,8 @@ def return_to_lobby(room: Room):
     room.prompt = ""
     room.trap_word = ""
     room.locked_words.clear()
+    room.lock_times.clear()
+    room.vote_accuracy_round = {}
     for p in room.players.values():
         p.reset_for_round()
         p.score = 0

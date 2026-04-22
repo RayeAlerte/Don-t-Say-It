@@ -7,9 +7,12 @@ class Player:
         self.name = name
         self.ws = ws
         self.connected: bool = True
+        self.latency_ms: float = 0.0
         self.score: int = 0
         self.streak: int = 0 
         self.role: str = role 
+        self.vote_accuracy_hits: int = 0
+        self.vote_accuracy_total: int = 0
         
         self.locked_word: Optional[str] = None
         self.bounty_guess: Optional[str] = None
@@ -48,9 +51,11 @@ class Room:
         self.decoy_word: str = "" # NEW: The Honeypot trap
         
         self.locked_words: Dict[str, str] = {} 
+        self.lock_times: Dict[str, float] = {}
         self.words_to_vote: List[str] = [] # NEW: Shuffled list for the Tribunal
         self.veto_votes: Dict[str, List[str]] = {} # NEW: Tracks who voted for what
         self.vetoed_words: List[str] = [] # NEW: Words that officially died
+        self.vote_accuracy_round: Dict[str, Dict[str, float]] = {}
 
     def get_active_players(self):
         return {k: v for k, v in self.players.items() if v.role == "active"}

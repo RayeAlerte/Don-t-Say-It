@@ -143,6 +143,7 @@
         let myName = "";
         let myRoom = "";
         let countdownInterval;
+        let pingInterval;
         let lastKnownState = null;
 
         // Sound Engine
@@ -237,6 +238,13 @@
             ws.onopen = () => { 
                 document.getElementById("connectPanel").style.display = "none"; 
                 document.getElementById("disconnectOverlay").style.display = "none";
+                
+                if (pingInterval) clearInterval(pingInterval);
+                pingInterval = setInterval(() => {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ action: "ping_probe", client_ts: Date.now() }));
+                    }
+                }, 3000);
             };
             
             ws.onmessage = (event) => {
@@ -252,12 +260,16 @@
                 } else if (data.action === "fill_prompt") {
                     document.getElementById("dealerPrompt").value = data.prompt;
                     document.getElementById("dealerTrap").focus();
+                } else if (data.action === "pong_probe" && data.client_ts) {
+                    let rtt = Date.now() - data.client_ts;
+                    ws.send(JSON.stringify({ action: "latency_update", latency_ms: Math.max(0, rtt / 2) }));
                 } else if (data.action === "state_update") {
                     renderState(data);
                 }
             };
 
             ws.onclose = () => {
+                if (pingInterval) clearInterval(pingInterval);
                 // Only show disconnect overlay if they aren't on the login screen
                 if(document.getElementById("connectPanel").style.display === "none") {
                     document.getElementById("disconnectOverlay").style.display = "flex";
@@ -314,8 +326,9 @@
                 document.getElementById("lobbyPlayers").innerHTML = state.players.map(p => {
                     let styleClass = p.streak >= 3 ? "gold-streak" : "";
                     let tag = p.role === "audience" ? `<span class="audience-tag">(VIP Audience)</span>` : "";
+                    let acc = p.vote_accuracy_total > 0 ? ` • Tribunal IQ: ${Math.round((p.vote_accuracy_hits / p.vote_accuracy_total) * 100)}%` : "";
                     let kickBtn = (isHost && p.name !== myName) ? `<button class="btn-kick" onclick="kickPlayer('${p.name}')">Kick</button>` : "";
-                    return `<div class="${styleClass}">${p.name} ${tag} ${kickBtn}</div>`;
+                    return `<div class="${styleClass}">${p.name} ${tag}${acc} ${kickBtn}</div>`;
                 }).join('');
                 
                 const startBtn = document.getElementById("startGameBtn");
@@ -411,6 +424,7 @@
                     let pData = state.players.find(p => p.name === pName);
                     let pointsEarned = 0;
                     let logs = [];
+                    let voteData = state.vote_accuracy_round && state.vote_accuracy_round[pName];
 
                     // 1. Survival Check
                     let isMindReader = pData && pData.mind_reader;
@@ -447,6 +461,10 @@
                         pointsEarned -= 1;
                         logs.push("<span style='color:#dd6b20'>🍯 HONEYPOT (-1 pt)</span>");
                     }
+                    
+                    if (voteData && voteData.total > 0) {
+                        logs.push(`<span style='color:#4a5568'>⚖️ VOTE ACCURACY (${voteData.hits}/${voteData.total})</span>`);
+                    }
 
                     let rowStyle = isMindReader ? "background: #faf5ff; border-left: 4px solid #805ad5;" : "background: #fff;";
                     revealHTML += `
@@ -466,7 +484,8 @@
                 document.getElementById("finalScoreboard").innerHTML = "<h3>Scoreboard</h3>" + 
                     state.players.map(p => {
                         let styleClass = p.streak >= 3 ? "gold-streak" : "";
-                        return `<div class="${styleClass}">${p.name}: ${p.score} points ${p.streak >= 3 ? '🔥' : ''}</div>`;
+                        let acc = p.vote_accuracy_total > 0 ? ` • ${Math.round((p.vote_accuracy_hits / p.vote_accuracy_total) * 100)}% accurate` : "";
+                        return `<div class="${styleClass}">${p.name}: ${p.score} points ${p.streak >= 3 ? '🔥' : ''}${acc}</div>`;
                     }).join('');
 
             } else if (state.phase === "game_over") {
