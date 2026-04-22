@@ -3,19 +3,28 @@ from fastapi import WebSocket
 import time
 
 class Player:
-    def __init__(self, name: str, ws: WebSocket):
+    def __init__(self, name: str, ws: WebSocket, role: str = "active"):
         self.name = name
         self.ws = ws
         self.score: int = 0
+        self.streak: int = 0 
+        self.role: str = role 
+        
         self.locked_word: Optional[str] = None
         self.bounty_guess: Optional[str] = None
         self.is_dealer: bool = False
-        self.timed_out: bool = False # NEW: Tracks if they failed to submit in time
+        self.timed_out: bool = False 
+        
+        # NEW: Round specific UI flags
+        self.caught_in_honeypot: bool = False
+        self.mind_reader: bool = False
 
     def reset_for_round(self):
         self.locked_word = None
         self.bounty_guess = None
         self.timed_out = False
+        self.caught_in_honeypot = False
+        self.mind_reader = False
 
 class Room:
     def __init__(self, code: str, host: str):
@@ -24,6 +33,7 @@ class Room:
         self.last_activity = time.time()
         
         self.players: Dict[str, Player] = {}
+        self.banned_names: List[str] = [] 
         self.dealer_queue: List[str] = []
         self.current_dealer: Optional[str] = None
         
@@ -34,8 +44,17 @@ class Room:
         
         self.prompt: str = ""
         self.trap_word: str = ""
+        self.decoy_word: str = "" # NEW: The Honeypot trap
+        
         self.locked_words: Dict[str, str] = {} 
+        self.words_to_vote: List[str] = [] # NEW: Shuffled list for the Tribunal
+        self.veto_votes: Dict[str, List[str]] = {} # NEW: Tracks who voted for what
+        self.vetoed_words: List[str] = [] # NEW: Words that officially died
+
+    def get_active_players(self):
+        return {k: v for k, v in self.players.items() if v.role == "active"}
 
     def all_responders_locked(self) -> bool:
-        responders = [p for p in self.players.values() if not p.is_dealer]
+        responders = [p for p in self.get_active_players().values() if not p.is_dealer]
+        if not responders: return False
         return all(p.locked_word is not None for p in responders)

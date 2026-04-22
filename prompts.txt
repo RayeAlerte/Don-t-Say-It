@@ -1,0 +1,26 @@
+Name a color in the rainbow.
+red, orange, yellow, green, blue, indigo, violet
+Name a body of water.
+ocean, sea, lake, river, pond, stream, gulf
+Name a popular pizza topping.
+pepperoni, cheese, sausage, mushrooms, onions, olives, bacon
+Name a European country.
+france, germany, italy, spain, uk, england, poland
+Name a brand of car.
+ford, toyota, honda, chevrolet, bmw, mercedes, tesla
+Name a fast food chain.
+mcdonalds, burger king, wendys, taco bell, kfc, subway
+Name a planet in our solar system.
+earth, mars, jupiter, saturn, venus, neptune, mercury, uranus
+Name a day of the week.
+monday, tuesday, wednesday, thursday, friday, saturday, sunday
+Name a major US city.
+new york, los angeles, chicago, houston, miami, seattle
+Name a type of bear.
+grizzly, polar, black, brown, panda, koala
+Name a common household pet.
+dog, cat, bird, fish, hamster, snake, rabbit
+Name a piece of living room furniture.
+sofa, couch, chair, table, rug, lamp, tv
+Name a popular social media app.
+facebook, instagram, tiktok, twitter, snapchat, reddit
