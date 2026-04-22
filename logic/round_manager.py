@@ -4,6 +4,9 @@ import re
 import os
 
 DEALER_BOUNTY_CAP = 2
+COMP_MIN_VOTE_SHARE = 0.35
+COMP_MIN_VOTES = 2
+COMP_MAX_REMOVALS = 2
 
 # --- Load Prompts from TXT ---
 PROMPTS_DB = []
@@ -126,13 +129,25 @@ def resolve_round(room: Room):
     dealer_bounty_awards = 0
     room.vote_accuracy_round = {}
     
-    # 1. Tally Tribunal Votes (>50% Rule)
+    # 1. Tally Tribunal Votes
     total_voters = len(room.get_active_players())
-    threshold = total_voters / 2
-    
-    for word, voters in room.veto_votes.items():
-        if len(voters) > threshold:
-            room.vetoed_words.append(word)
+    if room.ruleset == "competitive":
+        threshold = max(COMP_MIN_VOTES, int((total_voters * COMP_MIN_VOTE_SHARE) + 0.9999))
+        ranked_words = sorted(
+            room.veto_votes.items(),
+            key=lambda item: len(item[1]),
+            reverse=True
+        )
+        for word, voters in ranked_words:
+            if len(room.vetoed_words) >= COMP_MAX_REMOVALS:
+                break
+            if len(voters) >= threshold:
+                room.vetoed_words.append(word)
+    else:
+        threshold = total_voters / 2
+        for word, voters in room.veto_votes.items():
+            if len(voters) > threshold:
+                room.vetoed_words.append(word)
 
     # 2. Spring the Honeypot Penalty
     if room.decoy_word and any(is_match(room.decoy_word, w) for w in room.vetoed_words):

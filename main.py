@@ -15,6 +15,8 @@ active_rooms: Dict[str, Room] = {}
 MAX_LATENCY_COMP_MS = 400.0
 LATENCY_GRACE_BASE_S = 0.08
 LATENCY_GRACE_CAP_S = 0.35
+MIN_PHASE_TIME = 5
+MAX_PHASE_TIME = 120
 
 def assign_new_host(room: Room):
     if room.host in room.players:
@@ -59,33 +61,33 @@ async def schedule_timeout(room_code: str, phase: str, current_round: int, delay
             prompt, trap = round_manager.get_random_prompt()
             round_manager.advance_to_response_phase(room, prompt, trap, "")
             
-            new_deadline = time.time() + 10 
+            new_deadline = time.time() + room.response_time
             room.phase_deadline = new_deadline
-            asyncio.create_task(schedule_timeout(room.code, "response_phase", room.current_round, 10, new_deadline))
+            asyncio.create_task(schedule_timeout(room.code, "response_phase", room.current_round, room.response_time, new_deadline))
             await broadcast_state(room)
             
         elif phase == "response_phase":
             # NEW: Transition to Tribunal
             round_manager.advance_to_tribunal(room)
-            new_deadline = time.time() + 10 
+            new_deadline = time.time() + room.tribunal_time
             room.phase_deadline = new_deadline
-            asyncio.create_task(schedule_timeout(room.code, "tribunal", room.current_round, 10, new_deadline))
+            asyncio.create_task(schedule_timeout(room.code, "tribunal", room.current_round, room.tribunal_time, new_deadline))
             await broadcast_state(room)
             
         elif phase == "tribunal":
             # NEW: Resolve Tribunal into Reveal
             round_manager.resolve_round(room)
-            new_deadline = time.time() + 10 
+            new_deadline = time.time() + room.reveal_time
             room.phase_deadline = new_deadline
-            asyncio.create_task(schedule_timeout(room.code, "reveal", room.current_round, 10, new_deadline))
+            asyncio.create_task(schedule_timeout(room.code, "reveal", room.current_round, room.reveal_time, new_deadline))
             await broadcast_state(room)
             
         elif phase == "reveal":
             round_manager.next_round(room)
             if room.phase == "trap_phase":
-                new_deadline = time.time() + 30
+                new_deadline = time.time() + room.dealer_time
                 room.phase_deadline = new_deadline
-                asyncio.create_task(schedule_timeout(room.code, "trap_phase", room.current_round, 30, new_deadline))
+                asyncio.create_task(schedule_timeout(room.code, "trap_phase", room.current_round, room.dealer_time, new_deadline))
             await broadcast_state(room)
 
 
@@ -95,6 +97,11 @@ async def broadcast_state(room: Room):
         "room_code": room.code,
         "host": room.host,
         "phase": room.phase,
+        "ruleset": room.ruleset,
+        "dealer_time": room.dealer_time,
+        "response_time": room.response_time,
+        "tribunal_time": room.tribunal_time,
+        "reveal_time": room.reveal_time,
         "round": f"{room.current_round}/{room.round_limit}",
         "dealer": room.current_dealer,
         "time_left": max(0, int(room.phase_deadline - time.time())) if room.phase_deadline else 0,
@@ -193,9 +200,9 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
                             continue
                         round_manager.advance_to_response_phase(room, payload.prompt, payload.word, decoy)
                         
-                        new_deadline = time.time() + 10 
+                        new_deadline = time.time() + room.response_time
                         room.phase_deadline = new_deadline
-                        asyncio.create_task(schedule_timeout(room.code, "response_phase", room.current_round, 10, new_deadline))
+                        asyncio.create_task(schedule_timeout(room.code, "response_phase", room.current_round, room.response_time, new_deadline))
                         await broadcast_state(room)
                 
                 elif payload.action == "update_decoy" and player.is_dealer:
@@ -255,9 +262,9 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
                             
                             if room.all_responders_locked():
                                 round_manager.advance_to_tribunal(room)
-                                new_deadline = time.time() + 10 
+                                new_deadline = time.time() + room.tribunal_time
                                 room.phase_deadline = new_deadline
-                                asyncio.create_task(schedule_timeout(room.code, "tribunal", room.current_round, 10, new_deadline))
+                                asyncio.create_task(schedule_timeout(room.code, "tribunal", room.current_round, room.tribunal_time, new_deadline))
                             await broadcast_state(room)
 
                 elif payload.action == "bounty_guess" and not player.is_dealer:
@@ -280,29 +287,69 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
                 elif payload.action == "toggle_veto" and room.phase == "tribunal":
                     if payload.word and player.role == "active" and payload.word in room.words_to_vote:
                         word = payload.word
-                        if word not in room.veto_votes:
-                            room.veto_votes[word] = []
-                        
-                        if player.name in room.veto_votes[word]:
-                            room.veto_votes[word].remove(player.name)
+                        if room.ruleset == "competitive":
+                            currently_selected = player.name in room.veto_votes.get(word, [])
+                            for target_word in room.veto_votes.keys():
+                                if player.name in room.veto_votes[target_word]:
+                                    room.veto_votes[target_word].remove(player.name)
+                            
+                            if not currently_selected:
+                                if word not in room.veto_votes:
+                                    room.veto_votes[word] = []
+                                room.veto_votes[word].append(player.name)
                         else:
-                            room.veto_votes[word].append(player.name)
+                            if word not in room.veto_votes:
+                                room.veto_votes[word] = []
+                            
+                            if player.name in room.veto_votes[word]:
+                                room.veto_votes[word].remove(player.name)
+                            else:
+                                room.veto_votes[word].append(player.name)
                         await broadcast_state(room) # Send update so UI highlights it
+                
+                elif payload.action == "set_ruleset" and player.name == room.host:
+                    if room.phase == "lobby" and payload.ruleset in ("classic", "competitive"):
+                        room.ruleset = payload.ruleset
+                        await websocket.send_json({"action": "success", "message": f"Ruleset set to {room.ruleset}."})
+                        await broadcast_state(room)
+                
+                elif payload.action == "set_timers" and player.name == room.host:
+                    if room.phase == "lobby":
+                        dealer_time = payload.dealer_time
+                        response_time = payload.response_time
+                        tribunal_time = payload.tribunal_time
+                        reveal_time = payload.reveal_time
+                        
+                        if None in (dealer_time, response_time, tribunal_time, reveal_time):
+                            await websocket.send_json({"action": "rejected", "message": "All timer fields are required."})
+                            continue
+                        
+                        timer_values = [dealer_time, response_time, tribunal_time, reveal_time]
+                        if any(not isinstance(v, int) or v < MIN_PHASE_TIME or v > MAX_PHASE_TIME for v in timer_values):
+                            await websocket.send_json({"action": "rejected", "message": f"Timer values must be {MIN_PHASE_TIME}-{MAX_PHASE_TIME} seconds."})
+                            continue
+                        
+                        room.dealer_time = dealer_time
+                        room.response_time = response_time
+                        room.tribunal_time = tribunal_time
+                        room.reveal_time = reveal_time
+                        await websocket.send_json({"action": "success", "message": "Lobby timers updated."})
+                        await broadcast_state(room)
                 
                 elif payload.action == "start_game" and player.name == room.host:
                     if room.phase == "lobby" and len(room.get_active_players()) >= 3:
                         round_manager.start_game(room)
-                        new_deadline = time.time() + 30
+                        new_deadline = time.time() + room.dealer_time
                         room.phase_deadline = new_deadline
-                        asyncio.create_task(schedule_timeout(room.code, "trap_phase", room.current_round, 30, new_deadline))
+                        asyncio.create_task(schedule_timeout(room.code, "trap_phase", room.current_round, room.dealer_time, new_deadline))
                         await broadcast_state(room)
 
                 elif payload.action == "play_again" and player.name == room.host:
                     if room.phase == "game_over":
                         round_manager.play_again(room)
-                        new_deadline = time.time() + 30
+                        new_deadline = time.time() + room.dealer_time
                         room.phase_deadline = new_deadline
-                        asyncio.create_task(schedule_timeout(room.code, "trap_phase", room.current_round, 30, new_deadline))
+                        asyncio.create_task(schedule_timeout(room.code, "trap_phase", room.current_round, room.dealer_time, new_deadline))
                         await broadcast_state(room)
                         
                 elif payload.action == "return_lobby" and player.name == room.host:

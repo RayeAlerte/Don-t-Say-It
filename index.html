@@ -62,6 +62,25 @@
     <div id="lobbyPanel" class="panel">
         <h2>Lobby</h2>
         <p id="lobbyWaitText" style="font-weight: bold; color: #2b6cb0;">Waiting for players...</p>
+        <div id="rulesetControls" style="margin: 10px 0;">
+            <label for="rulesetSelect"><strong>Ruleset:</strong></label>
+            <select id="rulesetSelect" onchange="setRuleset()" style="padding: 8px; border-radius: 4px; border: 1px solid #cbd5e0;">
+                <option value="classic">Classic</option>
+                <option value="competitive">Competitive (A/B)</option>
+            </select>
+            <div id="rulesetDescription" style="font-size: 0.85em; color: #4a5568; margin-top: 5px;"></div>
+        </div>
+        <div id="timerControls" style="margin: 10px 0; text-align: left; background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+            <strong>Round Timer Settings</strong>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
+                <label>Dealer Time (s) <input type="number" id="dealerTimeInput" min="5" max="120"></label>
+                <label>Response Time (s) <input type="number" id="responseTimeInput" min="5" max="120"></label>
+                <label>Tribunal Time (s) <input type="number" id="tribunalTimeInput" min="5" max="120"></label>
+                <label>Resolve Time (s) <input type="number" id="revealTimeInput" min="5" max="120"></label>
+            </div>
+            <button id="saveTimersBtn" onclick="saveTimers()" style="margin-top: 8px;">Save Timers</button>
+            <div style="font-size: 0.8em; color: #718096;">Defaults: 30 / 10 / 10 / 10</div>
+        </div>
         <div id="lobbyPlayers" class="scoreboard"></div>
         <button id="startGameBtn" onclick="startGame()" style="display: none; margin-top: 15px;">Start Game</button>
     </div>
@@ -157,8 +176,8 @@
         function sanitizeInput(inputId) {
             let el = document.getElementById(inputId);
             let val = el.value;
-            // Allow letters, numbers, spaces, basic punctuation. No emojis.
-            if (!/^[a-zA-Z0-9\s\-_.,!?]*$/.test(val)) {
+            // Allow letters, numbers, and spaces only.
+            if (!/^[a-zA-Z0-9\s]*$/.test(val)) {
                 el.classList.add("error");
                 showToast("Invalid characters! Letters and numbers only.");
                 return null;
@@ -172,6 +191,25 @@
         document.getElementById("safeWord").addEventListener("keypress", function(e) { if (e.key === "Enter") sendSafeWord(); });
         document.getElementById("bountyWord").addEventListener("keypress", function(e) { if (e.key === "Enter") sendBounty(); });
         document.getElementById("midRoundDecoy").addEventListener("keypress", function(e) { if (e.key === "Enter") updateDecoy(); });
+        
+        function enforceAlphanumericInput(el, allowSpaces = true) {
+            const pattern = allowSpaces ? /[^a-zA-Z0-9\s]/g : /[^a-zA-Z0-9]/g;
+            const cleaned = el.value.replace(pattern, "");
+            if (cleaned !== el.value) {
+                el.value = cleaned;
+                el.classList.add("error");
+                showToast("Only letters and numbers are allowed.");
+                setTimeout(() => el.classList.remove("error"), 800);
+            }
+        }
+        
+        ["playerName", "dealerPrompt", "dealerTrap", "dealerDecoy", "midRoundDecoy", "safeWord", "bountyWord"].forEach(id => {
+            document.getElementById(id).addEventListener("input", (e) => enforceAlphanumericInput(e.target, true));
+        });
+        document.getElementById("roomCode").addEventListener("input", (e) => {
+            enforceAlphanumericInput(e.target, false);
+            e.target.value = e.target.value.toUpperCase();
+        });
 
         function switchPanel(panelId) {
             document.querySelectorAll('.panel').forEach(p => p.classList.remove('active-panel'));
@@ -332,6 +370,22 @@
                 }).join('');
                 
                 const startBtn = document.getElementById("startGameBtn");
+                const rulesetSelect = document.getElementById("rulesetSelect");
+                const rulesetDescription = document.getElementById("rulesetDescription");
+                const dealerTimeInput = document.getElementById("dealerTimeInput");
+                const responseTimeInput = document.getElementById("responseTimeInput");
+                const tribunalTimeInput = document.getElementById("tribunalTimeInput");
+                const revealTimeInput = document.getElementById("revealTimeInput");
+                const saveTimersBtn = document.getElementById("saveTimersBtn");
+                
+                rulesetSelect.value = state.ruleset || "classic";
+                dealerTimeInput.value = state.dealer_time || 30;
+                responseTimeInput.value = state.response_time || 10;
+                tribunalTimeInput.value = state.tribunal_time || 10;
+                revealTimeInput.value = state.reveal_time || 10;
+                rulesetDescription.innerText = (state.ruleset === "competitive")
+                    ? "Competitive: one vote per player, dynamic elimination threshold, max 2 vetoed words."
+                    : "Classic: multi-vote tribunal with majority elimination.";
                 if (playerCount < 3) {
                     document.getElementById("lobbyWaitText").innerText = `Waiting for active players... (${playerCount}/3)`;
                 } else {
@@ -339,10 +393,22 @@
                 }
                 
                 if (isHost) {
+                    rulesetSelect.disabled = false;
+                    dealerTimeInput.disabled = false;
+                    responseTimeInput.disabled = false;
+                    tribunalTimeInput.disabled = false;
+                    revealTimeInput.disabled = false;
+                    saveTimersBtn.disabled = false;
                     startBtn.style.display = "inline-block";
                     startBtn.disabled = playerCount < 3;
                     startBtn.innerText = playerCount < 3 ? "Need 3 Players" : "Start Game";
                 } else {
+                    rulesetSelect.disabled = true;
+                    dealerTimeInput.disabled = true;
+                    responseTimeInput.disabled = true;
+                    tribunalTimeInput.disabled = true;
+                    revealTimeInput.disabled = true;
+                    saveTimersBtn.disabled = true;
                     startBtn.style.display = "none";
                 }
             
@@ -540,6 +606,29 @@
         }
 
         function toggleVeto(word) { ws.send(JSON.stringify({ action: "toggle_veto", word: word })); }
+        function setRuleset() {
+            let ruleset = document.getElementById("rulesetSelect").value;
+            ws.send(JSON.stringify({ action: "set_ruleset", ruleset: ruleset }));
+        }
+        function saveTimers() {
+            let dealerTime = parseInt(document.getElementById("dealerTimeInput").value, 10);
+            let responseTime = parseInt(document.getElementById("responseTimeInput").value, 10);
+            let tribunalTime = parseInt(document.getElementById("tribunalTimeInput").value, 10);
+            let revealTime = parseInt(document.getElementById("revealTimeInput").value, 10);
+            
+            if ([dealerTime, responseTime, tribunalTime, revealTime].some(v => Number.isNaN(v) || v < 5 || v > 120)) {
+                showToast("Timer values must be between 5 and 120.");
+                return;
+            }
+            
+            ws.send(JSON.stringify({
+                action: "set_timers",
+                dealer_time: dealerTime,
+                response_time: responseTime,
+                tribunal_time: tribunalTime,
+                reveal_time: revealTime
+            }));
+        }
         function requestRandomPrompt() { ws.send(JSON.stringify({ action: "random_prompt" })); }
         function kickPlayer(name) { ws.send(JSON.stringify({ action: "kick_player", word: name })); }
         function playAgain() { ws.send(JSON.stringify({ action: "play_again" })); }

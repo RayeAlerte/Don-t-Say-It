@@ -45,6 +45,11 @@ class Room:
         self.current_round = 1
         self.phase = "lobby" 
         self.phase_deadline: float = 0 
+        self.ruleset: str = "classic"
+        self.dealer_time: int = 30
+        self.response_time: int = 10
+        self.tribunal_time: int = 10
+        self.reveal_time: int = 10
         
         self.prompt: str = ""
         self.trap_word: str = ""
