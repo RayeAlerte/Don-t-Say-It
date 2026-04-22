@@ -177,10 +177,13 @@
             let el = document.getElementById(inputId);
             let val = el.value;
             // Allow letters, numbers, and spaces only.
-            if (!/^[a-zA-Z0-9\s]*$/.test(val)) {
-                el.classList.add("error");
-                showToast("Invalid characters! Letters and numbers only.");
-                return null;
+            if(inputId != "dealerPrompt"){
+                if (!/^[a-zA-Z0-9\s]*$/.test(val)) {
+                    console.log(inputID)
+                    el.classList.add("error");
+                    showToast("Invalid characters! Letters and numbers only.");
+                    return null;
+                }
             }
             el.classList.remove("error");
             return val.trim();
@@ -203,7 +206,7 @@
             }
         }
         
-        ["playerName", "dealerPrompt", "dealerTrap", "dealerDecoy", "midRoundDecoy", "safeWord", "bountyWord"].forEach(id => {
+        ["playerName", "dealerTrap", "dealerDecoy", "midRoundDecoy", "safeWord", "bountyWord"].forEach(id => {
             document.getElementById(id).addEventListener("input", (e) => enforceAlphanumericInput(e.target, true));
         });
         document.getElementById("roomCode").addEventListener("input", (e) => {
@@ -486,21 +489,30 @@
                 document.getElementById("revealDecoyWord").innerText = state.decoy_word || "None";
                 
                 let revealHTML = "";
+                let dealerPoints = 0;
+                let trappedCount = 0;
+                let bountyFarmedCount = 0;
+
+                // 1. Calculate Player Rows & Tally Dealer Points
                 for (const [pName, pWord] of Object.entries(state.revealed_words)) {
                     let pData = state.players.find(p => p.name === pName);
                     let pointsEarned = 0;
                     let logs = [];
                     let voteData = state.vote_accuracy_round && state.vote_accuracy_round[pName];
 
-                    // 1. Survival Check
                     let isMindReader = pData && pData.mind_reader;
                     let isTrapped = isMatch(pWord, state.trap_word);
                     let isVetoed = state.vetoed_words.some(v => isMatch(pWord, v));
+                    let hasZeroPoints = false;
 
                     if (pData && pData.timed_out) {
                         logs.push("<span style='color:#e53e3e'>🌽 AFK (0 pts)</span>");
+                        hasZeroPoints = true;
                     } else if (isTrapped) {
                         logs.push("<span style='color:#e53e3e'>💥 TRAPPED (0 pts)</span>");
+                        hasZeroPoints = true;
+                        trappedCount++;
+                        dealerPoints++; // Dealer gets a point for a trap
                         if(pName === myName) playSound("sfxBuzzer");
                     } else if (isMindReader) {
                         pointsEarned += 1;
@@ -508,6 +520,7 @@
                         if(pName === myName) playSound("sfxDing");
                     } else if (isVetoed) {
                         logs.push("<span style='color:#e53e3e'>🗑️ VETOED (0 pts)</span>");
+                        hasZeroPoints = true;
                         if(pName === myName) playSound("sfxBuzzer");
                     } else {
                         pointsEarned += 1;
@@ -515,14 +528,18 @@
                         if(pName === myName) playSound("sfxDing");
                     }
 
-                    // 2. Bounty Check
                     let bounty = state.revealed_bounties[pName];
-                    if (bounty && isMatch(bounty, state.trap_word)) {
+                    if (bounty && isMatch(bounty, state.trap_word) && !hasZeroPoints) {
                         pointsEarned += 1;
                         logs.push("<span style='color:#38a169'>🎯 BOUNTY (+1 pt)</span>");
+                        
+                        // Dealer Bounty Cap Math
+                        if (bountyFarmedCount < 2) {
+                            bountyFarmedCount++;
+                            dealerPoints++;
+                        }
                     }
 
-                    // 3. Honeypot Check (Penalty)
                     if (pData && pData.caught) {
                         pointsEarned -= 1;
                         logs.push("<span style='color:#dd6b20'>🍯 HONEYPOT (-1 pt)</span>");
@@ -543,9 +560,22 @@
                         </div>`;
                 }
 
-                document.getElementById("revealList").innerHTML = revealHTML;
+                // 2. Build the Dealer Banner
+                let dealerBanner = `
+                    <div style="margin-bottom: 20px; padding: 15px; border-radius: 6px; background: #ebf8ff; border: 2px solid #3182ce; text-align: left;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3 style="margin: 0; color: #2b6cb0;">🃏 Dealer: ${state.dealer}</h3>
+                            <strong style="font-size: 1.2em; color: ${dealerPoints > 0 ? '#38a169' : '#718096'};">Net: +${dealerPoints}</strong>
+                        </div>
+                        <div style="font-size: 0.9em; margin-top: 5px; color: #4a5568;">
+                            ${trappedCount} Trapped | ${bountyFarmedCount} Bounties Farmed (Max 2)
+                        </div>
+                    </div>`;
+
+                // Render the unified list
+                document.getElementById("revealList").innerHTML = dealerBanner + revealHTML;
                 
-                // Scoreboard update...
+                // Final Scoreboard
                 state.players.sort((a,b) => b.score - a.score);
                 document.getElementById("finalScoreboard").innerHTML = "<h3>Scoreboard</h3>" + 
                     state.players.map(p => {
@@ -553,7 +583,6 @@
                         let acc = p.vote_accuracy_total > 0 ? ` • ${Math.round((p.vote_accuracy_hits / p.vote_accuracy_total) * 100)}% accurate` : "";
                         return `<div class="${styleClass}">${p.name}: ${p.score} points ${p.streak >= 3 ? '🔥' : ''}${acc}</div>`;
                     }).join('');
-
             } else if (state.phase === "game_over") {
                 switchPanel("gameOverPanel");
                 
