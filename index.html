@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Don't Say It!</title>
+    <style>
+        body { font-family: sans-serif; background-color: #f4f4f9; padding: 20px; text-align: center; }
+        .panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; display: none; }
+        .active-panel { display: block; }
+        input { padding: 10px; margin: 5px; width: 80%; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 10px 20px; background: #2b6cb0; color: white; border: none; border-radius: 4px; cursor: pointer; margin: 5px; font-weight: bold; }
+        button:hover { background: #2c5282; }
+        button:disabled { background: #a0aec0; cursor: not-allowed; }
+        #toast { color: #e53e3e; font-weight: bold; margin-top: 10px; min-height: 20px; }
+        .scoreboard { text-align: left; margin-top: 20px; border-top: 2px solid #eee; padding-top: 10px; }
+        
+        #roomHeader { display: none; background: #e2e8f0; padding: 15px; border-radius: 4px; margin-bottom: 20px; font-weight: bold; color: #4a5568; position: relative; }
+        #timerContainer { display: none; font-size: 1.5em; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="roomHeader">
+        Room Code: <span id="displayRoomCode" style="color: #2b6cb0; font-size: 1.2em;"></span>
+        <span id="hostBadge" style="display:none; font-size: 0.8em; color: #c53030; margin-left: 10px;">(You are Host)</span>
+        
+        <div id="timerContainer">
+            ⏳ <span id="timerLabel" style="font-weight: bold; color: #4a5568;"></span>
+            <span id="timeRemaining"></span>s
+        </div>
+    </div>
+
+    <div id="connectPanel" class="panel active-panel">
+        <h2>Join Game</h2>
+        <input type="text" id="roomCode" placeholder="Room Code (e.g., ABCD)" value="ABCD"><br>
+        <input type="text" id="playerName" placeholder="Your Name"><br>
+        <button onclick="connect()">Connect</button>
+    </div>
+
+    <div id="lobbyPanel" class="panel">
+        <h2>Lobby</h2>
+        <p id="lobbyWaitText" style="font-weight: bold; color: #2b6cb0;">Waiting for at least 3 players to start...</p>
+        <div id="lobbyPlayers" class="scoreboard"></div>
+        <button id="startGameBtn" onclick="startGame()" style="display: none; margin-top: 15px;">Start Game</button>
+    </div>
+
+    <div id="dealerTrapPanel" class="panel">
+        <h2 style="color: #c53030;">You are the Dealer!</h2>
+        <input type="text" id="dealerPrompt" placeholder="Enter the Prompt (e.g., A red fruit)">
+        <input type="text" id="dealerTrap" placeholder="Enter your Trap Word">
+        <button onclick="sendTrap()">Lock Trap</button>
+    </div>
+
+    <div id="responderWaitPanel" class="panel">
+        <h2>Get Ready...</h2>
+        <p>Waiting for <strong id="currentDealerName"></strong> to set the trap.</p>
+    </div>
+
+    <div id="playPanel" class="panel">
+        <h2 id="displayPrompt" style="color: #2b6cb0;"></h2>
+        
+        <div id="dealerWaitZone" style="display:none;">
+            <p>Your trap is set. Waiting for responders to fall in...</p>
+        </div>
+
+        <div id="responderPlayZone" style="display:none;">
+            <div id="safeWordZone">
+                <input type="text" id="safeWord" placeholder="Enter your Safe Word">
+                <button onclick="sendSafeWord()">Lock Safe Word</button>
+            </div>
+            <div id="bountyZone" style="display:none; margin-top: 15px;">
+                <p style="color: green;">Safe word locked! Try for the Bounty:</p>
+                <input type="text" id="bountyWord" placeholder="Guess the Dealer's Trap Word">
+                <button onclick="sendBounty()">Lock Bounty</button>
+            </div>
+            <div id="toast"></div>
+        </div>
+    </div>
+
+    <div id="revealPanel" class="panel">
+        <h2>Round Reveal</h2>
+        <h3 style="color: #c53030;">Trap Word: <span id="revealTrapWord"></span></h3>
+        <div id="revealList" style="text-align: left; background: #f7fafc; padding: 10px; border-radius: 4px;"></div>
+        
+        <div id="finalScoreboard" class="scoreboard"></div>
+        <button id="nextRoundBtn" onclick="nextRound()" style="margin-top: 15px; display: none;">Start Next Round</button>
+    </div>
+
+    <div id="gameOverPanel" class="panel">
+        <h1 style="color: #2b6cb0;" id="winnerAnnouncement"></h1>
+        <div id="finalStandings" class="scoreboard" style="font-size: 1.2em; text-align: center; margin-bottom: 20px;"></div>
+        
+        <div id="gameOverControls" style="display: none;">
+            <p><strong>Host Controls:</strong></p>
+            <button onclick="playAgain()">Play Again</button>
+            <button onclick="returnLobby()" style="background: #718096;">Return to Lobby</button>
+        </div>
+        <p id="gameOverWaitText" style="display: none;">Waiting for the Host to choose the next step...</p>
+    </div>
+
+    <script>
+        let ws;
+        let myName = "";
+        let countdownInterval;
+
+        document.getElementById("dealerTrap").addEventListener("keypress", function(e) { if (e.key === "Enter") sendTrap(); });
+        document.getElementById("safeWord").addEventListener("keypress", function(e) { if (e.key === "Enter") sendSafeWord(); });
+        document.getElementById("bountyWord").addEventListener("keypress", function(e) { if (e.key === "Enter") sendBounty(); });
+
+        function switchPanel(panelId) {
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active-panel'));
+            document.getElementById(panelId).classList.add('active-panel');
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById("toast");
+            toast.innerText = msg;
+            setTimeout(() => toast.innerText = "", 3000);
+        }
+
+        function connect() {
+            const room = document.getElementById("roomCode").value.toUpperCase();
+            myName = document.getElementById("playerName").value;
+            if(!myName || !room) return alert("Enter a name and room code!");
+            
+            ws = new WebSocket(`ws://${window.location.host}/ws/${room}/${myName}`);
+            
+            ws.onopen = () => { document.getElementById("connectPanel").style.display = "none"; };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.action === "rejected") {
+                    showToast(data.message);
+                    document.getElementById("safeWord").value = ""; 
+                } else if (data.action === "state_update") {
+                    renderState(data);
+                }
+            };
+        }
+
+        function renderState(state) {
+            const isDealer = state.dealer === myName;
+            const isHost = state.host === myName;
+            const me = state.players.find(p => p.name === myName);
+            const playerCount = state.players.length;
+
+            document.getElementById("roomHeader").style.display = "block";
+            document.getElementById("displayRoomCode").innerText = state.room_code;
+            document.getElementById("hostBadge").style.display = isHost ? "inline" : "none";
+
+            // NEW: Handle the Visual Timer safely
+            clearInterval(countdownInterval);
+            let timeLeft = state.time_left;
+            
+            if ((state.phase === "trap_phase" || state.phase === "response_phase") && timeLeft > 0) {
+                document.getElementById("timerContainer").style.display = "block";
+                let phaseLabel = state.phase === "trap_phase" ? "Dealer's Time: " : "Time to Respond! ";
+                document.getElementById("timerLabel").innerText = phaseLabel;
+                document.getElementById("timeRemaining").innerText = timeLeft;
+                document.getElementById("timeRemaining").style.color = timeLeft <= 3 ? "red" : "#2b6cb0";
+
+                countdownInterval = setInterval(() => {
+                    timeLeft--;
+                    if (timeLeft < 0) timeLeft = 0;
+                    document.getElementById("timeRemaining").innerText = timeLeft;
+                    document.getElementById("timeRemaining").style.color = timeLeft <= 3 ? "red" : "#2b6cb0";
+                    if (timeLeft === 0) clearInterval(countdownInterval);
+                }, 1000);
+            } else {
+                document.getElementById("timerContainer").style.display = "none";
+            }
+
+            if (state.phase === "lobby") {
+                switchPanel("lobbyPanel");
+                document.getElementById("lobbyPlayers").innerHTML = state.players.map(p => `<div>${p.name}</div>`).join('');
+                
+                const waitText = document.getElementById("lobbyWaitText");
+                const startBtn = document.getElementById("startGameBtn");
+
+                if (playerCount < 3) {
+                    waitText.innerText = `Waiting for at least 3 players... (${playerCount}/3)`;
+                } else {
+                    waitText.innerText = "Ready to start!";
+                }
+                
+                if (isHost) {
+                    startBtn.style.display = "inline-block";
+                    startBtn.disabled = playerCount < 3;
+                    startBtn.innerText = playerCount < 3 ? "Need 3 Players" : "Start Game";
+                } else {
+                    startBtn.style.display = "none";
+                }
+            
+            } else if (state.phase === "trap_phase") {
+                if (isDealer) {
+                    switchPanel("dealerTrapPanel");
+                    document.getElementById("dealerPrompt").value = "";
+                    document.getElementById("dealerTrap").value = "";
+                    document.getElementById("dealerPrompt").focus();
+                } else {
+                    switchPanel("responderWaitPanel");
+                    document.getElementById("currentDealerName").innerText = state.dealer;
+                }
+            
+            } else if (state.phase === "response_phase") {
+                switchPanel("playPanel");
+                document.getElementById("displayPrompt").innerText = `Prompt: "${state.prompt}"`;
+                
+                if (isDealer) {
+                    document.getElementById("dealerWaitZone").style.display = "block";
+                    document.getElementById("responderPlayZone").style.display = "none";
+                } else {
+                    document.getElementById("dealerWaitZone").style.display = "none";
+                    document.getElementById("responderPlayZone").style.display = "block";
+                    
+                    if (!me.locked) {
+                        document.getElementById("safeWordZone").style.display = "block";
+                        document.getElementById("bountyZone").style.display = "none";
+                        document.getElementById("safeWord").focus();
+                    } else if (!me.bounty_locked) {
+                        document.getElementById("safeWordZone").style.display = "none";
+                        document.getElementById("bountyZone").style.display = "block";
+                        document.getElementById("bountyWord").value = "";
+                        document.getElementById("bountyWord").focus();
+                    } else {
+                        document.getElementById("bountyZone").innerHTML = "<p>Waiting for others to finish...</p>";
+                    }
+                }
+            
+            } else if (state.phase === "reveal") {
+                switchPanel("revealPanel");
+                document.getElementById("revealTrapWord").innerText = state.trap_word;
+                
+                let revealHTML = "";
+                for (const [pName, pWord] of Object.entries(state.revealed_words)) {
+                    let status = (pWord === state.trap_word) ? "💥 ELIMINATED" : "✅ SURVIVED";
+                    let bounty = state.revealed_bounties[pName];
+                    let bountyTxt = bounty ? ` (Bounty Guess: ${bounty})` : "";
+                    revealHTML += `<div><b>${pName}:</b> ${pWord} - ${status}${bountyTxt}</div>`;
+                }
+                document.getElementById("revealList").innerHTML = revealHTML;
+
+                state.players.sort((a,b) => b.score - a.score);
+                document.getElementById("finalScoreboard").innerHTML = "<h3>Scoreboard</h3>" + 
+                    state.players.map(p => `<div>${p.name}: ${p.score} points</div>`).join('');
+
+                if (isDealer) {
+                    const [current, total] = state.round.split('/');
+                    if (parseInt(current) >= parseInt(total)) {
+                        document.getElementById("nextRoundBtn").innerText = "End Game & See Winner";
+                    } else {
+                        document.getElementById("nextRoundBtn").innerText = "Start Next Round";
+                    }
+                    document.getElementById("nextRoundBtn").style.display = "inline-block";
+                } else {
+                    document.getElementById("nextRoundBtn").style.display = "none";
+                }
+                
+            } else if (state.phase === "game_over") {
+                switchPanel("gameOverPanel");
+                
+                let sortedPlayers = [...state.players].sort((a,b) => b.score - a.score);
+                let winner = sortedPlayers[0];
+                document.getElementById("winnerAnnouncement").innerText = `🏆 ${winner.name} Wins! 🏆`;
+                
+                document.getElementById("finalStandings").innerHTML = sortedPlayers.map(p => `<div>${p.name}: <strong>${p.score}</strong> points</div>`).join('');
+                
+                if (isHost) {
+                    document.getElementById("gameOverControls").style.display = "block";
+                    document.getElementById("gameOverWaitText").style.display = "none";
+                } else {
+                    document.getElementById("gameOverControls").style.display = "none";
+                    document.getElementById("gameOverWaitText").style.display = "block";
+                }
+            }
+        }
+
+        function sendTrap() { ws.send(JSON.stringify({ action: "lock_trap", prompt: document.getElementById("dealerPrompt").value, word: document.getElementById("dealerTrap").value })); }
+        function sendSafeWord() { ws.send(JSON.stringify({ action: "lock_word", word: document.getElementById("safeWord").value })); }
+        function sendBounty() { ws.send(JSON.stringify({ action: "bounty_guess", word: document.getElementById("bountyWord").value })); }
+        function nextRound() { ws.send(JSON.stringify({ action: "next_round" })); }
+        function playAgain() { ws.send(JSON.stringify({ action: "play_again" })); }
+        function returnLobby() { ws.send(JSON.stringify({ action: "return_lobby" })); }
+        function startGame() { ws.send(JSON.stringify({ action: "start_game" })); }
+    </script>
+</body>
+</html>
