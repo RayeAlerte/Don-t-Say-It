@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, staticfiles
 from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 from typing import Dict
@@ -44,6 +44,9 @@ async def lifespan(app: FastAPI):
     cleaner_task.cancel()
 
 app = FastAPI(lifespan=lifespan)
+
+# Mount the static directory to serve CSS and JS files
+app.mount("/static", staticfiles.StaticFiles(directory="static"), name="static")
 
 @app.get("/")
 async def get_index():

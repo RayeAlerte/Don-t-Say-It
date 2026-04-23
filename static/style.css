@@ -1,0 +1,25 @@
+body { font-family: sans-serif; background-color: #f4f4f9; padding: 20px; text-align: center; }
+.panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; display: none; }
+.active-panel { display: block; }
+input { padding: 10px; margin: 5px; width: 80%; border: 1px solid #ccc; border-radius: 4px; }
+input.error { border: 2px solid red; background-color: #fff5f5; }
+button { padding: 10px 20px; background: #2b6cb0; color: white; border: none; border-radius: 4px; cursor: pointer; margin: 5px; font-weight: bold; }
+button:hover { background: #2c5282; }
+button:disabled { background: #a0aec0; cursor: not-allowed; }
+
+.btn-kick { background: #e53e3e; padding: 2px 5px; font-size: 0.8em; margin-left: 10px; }
+.btn-kick:hover { background: #c53030; }
+.btn-secondary { background: #4a5568; }
+.btn-secondary:hover { background: #2d3748; }
+
+#toast { color: #e53e3e; font-weight: bold; margin-top: 10px; min-height: 20px; }
+.scoreboard { text-align: left; margin-top: 20px; border-top: 2px solid #eee; padding-top: 10px; }
+
+.gold-streak { color: #d69e2e; font-weight: bold; text-shadow: 0 0 5px rgba(214,158,46,0.3); }
+.audience-tag { color: #718096; font-size: 0.8em; font-style: italic; }
+
+#roomHeader { display: none; background: #e2e8f0; padding: 15px; border-radius: 4px; margin-bottom: 20px; font-weight: bold; color: #4a5568; position: relative; }
+#timerContainer { display: none; font-size: 1.5em; margin-top: 10px; }
+
+/* Disconnect Overlay */
+#disconnectOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: white; z-index: 1000; flex-direction: column; justify-content: center; align-items: center; }
