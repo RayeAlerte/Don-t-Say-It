@@ -220,6 +220,23 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
                 elif payload.action == "lock_word" and not player.is_dealer and player.role == "active":
                     if room.phase == "response_phase" and payload.word:
                         word = payload.word.strip()[:25]
+
+                        # --- NEW: VIP Bypass for the Trap Word ---
+                        if round_manager.is_match(word, room.trap_word):
+                            player.locked_word = word
+                            await websocket.send_json({"action": "success", "message": "Word locked!"})
+                            
+                            # Check if this trap victim was the final player to lock in
+                            if room.all_responders_locked():
+                                round_manager.advance_to_tribunal(room)
+                                new_deadline = time.time() + room.tribunal_time
+                                room.phase_deadline = new_deadline
+                                asyncio.create_task(schedule_timeout(room.code, "tribunal", room.current_round, room.tribunal_time, new_deadline))
+                            
+                            await broadcast_state(room)
+                            continue # Skip the rest of the duplicate checking logic entirely!
+                        # -----------------------------------------
+                        
                         is_taken = False
                         thief = ""
                         steal_from = None
@@ -356,7 +373,7 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
                         await broadcast_state(room)
                         
                 elif payload.action == "return_lobby" and player.name == room.host:
-                    if room.phase == "game_over":
+                    if room.phase != "lobby":
                         round_manager.return_to_lobby(room)
                         await broadcast_state(room)
 

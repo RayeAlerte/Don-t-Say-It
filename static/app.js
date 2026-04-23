@@ -202,6 +202,15 @@ function renderState(state) {
     document.getElementById("displayRoomCode").innerText = state.room_code;
     document.getElementById("hostBadge").style.display = isHost ? "inline" : "none";
 
+    // --- NEW: Inject Player Name and Toggle Abort Button ---
+    document.getElementById("displayPlayerName").innerText = `| 👤 ${myName}`;
+    
+    const abortBtn = document.getElementById("abortGameBtn");
+    if (abortBtn) {
+        // Only show the End Game button if you are the host AND the game has started
+        abortBtn.style.display = (isHost && state.phase !== "lobby") ? "inline-block" : "none";
+    }
+
     clearInterval(countdownInterval);
     let timeLeft = state.time_left;
     
@@ -256,7 +265,7 @@ function renderState(state) {
         tribunalTimeInput.value = state.tribunal_time || 10;
         revealTimeInput.value = state.reveal_time || 10;
         rulesetDescription.innerText = (state.ruleset === "competitive")
-            ? "Competitive: one vote per player, dynamic elimination threshold, max 2 vetoed words."
+            ? "Competitive: one tribunal vote per player, dynamic elimination, 2 veto max."
             : "Classic: multi-vote tribunal with majority elimination.";
             
         if (playerCount < 3) {
@@ -496,7 +505,32 @@ function sendBounty() {
     if(w) ws.send(JSON.stringify({ action: "bounty_guess", word: w })); 
 }
 
-function toggleVeto(word) { ws.send(JSON.stringify({ action: "toggle_veto", word: word })); }
+function toggleVeto(word) { 
+    // 1. Optimistic UI: Visually force the single-choice instantly for Competitive mode
+    if (lastKnownState && lastKnownState.ruleset === "competitive") {
+        const buttons = document.getElementById("tribunalWords").querySelectorAll("button");
+        buttons.forEach(btn => {
+            if (btn.innerText === word) {
+                // Toggle the clicked button
+                if (btn.style.backgroundColor === "rgb(229, 62, 62)" || btn.style.backgroundColor === "#e53e3e") {
+                    btn.style.backgroundColor = "#edf2f7";
+                    btn.style.color = "black";
+                } else {
+                    btn.style.backgroundColor = "#e53e3e";
+                    btn.style.color = "white";
+                }
+            } else {
+                // Force deselect all other buttons instantly
+                btn.style.backgroundColor = "#edf2f7";
+                btn.style.color = "black";
+            }
+        });
+    }
+
+    // 2. Send the actual command to the server
+    ws.send(JSON.stringify({ action: "toggle_veto", word: word })); 
+}
+
 function setRuleset() {
     let ruleset = document.getElementById("rulesetSelect").value;
     ws.send(JSON.stringify({ action: "set_ruleset", ruleset: ruleset }));

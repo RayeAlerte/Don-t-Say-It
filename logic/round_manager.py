@@ -2,6 +2,7 @@ from Models.game_state import Room
 import random
 import re
 import os
+import math
 
 DEALER_BOUNTY_CAP = 2
 COMP_MIN_VOTE_SHARE = 0.35
@@ -111,15 +112,27 @@ def advance_to_tribunal(room: Room):
     # -----------------------------------------
 
     # 2. Compile Voting List
-    pool = set(room.locked_words.keys())
+    # Use fuzzy deduplication so multiple slightly different safe words consolidate into one
+    pool = []
+    for p in room.get_active_players().values():
+        if not p.is_dealer and p.locked_word:
+            
+            # --- NEW: Hide the Trap Word from the Tribunal ---
+            if is_match(p.locked_word, room.trap_word):
+                continue # Skip it! Let them panic when they don't see their word.
+            # -------------------------------------------------
+            
+            # Only add the word to the pool if a fuzzy match doesn't already exist
+            if not any(is_match(p.locked_word, w) for w in pool):
+                pool.append(p.locked_word)
     
     # Inject Decoy (Only if it doesn't already perfectly match a safe word)
     if room.decoy_word:
         is_duplicate = any(is_match(room.decoy_word, w) for w in pool)
         if not is_duplicate:
-            pool.add(room.decoy_word)
+            pool.append(room.decoy_word)
             
-    room.words_to_vote = list(pool)
+    room.words_to_vote = pool
     random.shuffle(room.words_to_vote)
 
 def resolve_round(room: Room):
@@ -132,6 +145,10 @@ def resolve_round(room: Room):
     # 1. Tally Tribunal Votes
     total_voters = len(room.get_active_players())
     if room.ruleset == "competitive":
+        
+        # --- NEW: Dynamic Rule of Thirds Cap ---
+        dynamic_max_removals = max(2, math.ceil(total_voters * 0.3))
+        
         threshold = max(COMP_MIN_VOTES, int((total_voters * COMP_MIN_VOTE_SHARE) + 0.9999))
         ranked_words = sorted(
             room.veto_votes.items(),
@@ -139,7 +156,8 @@ def resolve_round(room: Room):
             reverse=True
         )
         for word, voters in ranked_words:
-            if len(room.vetoed_words) >= COMP_MAX_REMOVALS:
+            # Swap out the static COMP_MAX_REMOVALS for our new dynamic cap
+            if len(room.vetoed_words) >= dynamic_max_removals:
                 break
             if len(voters) >= threshold:
                 room.vetoed_words.append(word)

@@ -24,25 +24,28 @@
             <p><strong>The Premise:</strong> One player is the Dealer; everyone else is trying to survive. The Dealer sets a trap, and you have time to dodge it.</p>
 
             <h3 class="phase-dealer">🃏 Phase 1: The Dealer's Trap</h3>
-            <p class="phase-desc">The Dealer chooses a category (the <strong>Prompt</strong>) and secretly locks in a forbidden answer (the <strong>Trap Word</strong>).<br>
-            <span class="example-text">Example Prompt: "Name a fast food chain" | Trap Word: "McDonald's"</span><br>
-            The Dealer also sets a secret <strong>Decoy Word</strong> to trick the other players during the voting phase.</p>
+            <p class="phase-desc">The Dealer chooses a <strong>Prompt</strong> and secretly locks in a forbidden answer (the <strong>Trap Word</strong>).<br>
+            <span class="example-text">Example: "Name a fast food chain" | Trap Word: "McDonalds"</span><br>
+            The Dealer also sets a secret <strong>Decoy Word</strong> to trick other players during the tribunal.</p>
 
             <h3 class="phase-response">🏃 Phase 2: The Response</h3>
             <p class="phase-desc">As a Responder, you have two jobs:<br>
-            1. <strong>Survive:</strong> Type a <strong>Safe Word</strong> that fits the Prompt. If you type the Trap Word, you explode and forfeit the round. You must be fast—no two players can lock in the same word!<br>
-            2. <strong>The Bounty (Side-Bet):</strong> Once you are safe, try to read the Dealer's mind. Guess their exact Trap Word for a bonus point. <em>(Note: You only get the Bounty point if you survive the whole round.)</em></p>
+            <strong>Survive:</strong> Write <strong>Safe Words</strong> that fit the Prompt.<br> 
+            If you type the <strong>Trap Word</strong>, you explode and forfeit the round.<br>
+            Be quick—no two players can lock in the same word!<br><br>
+            <strong>Get Them Back:</strong> Once you are safe, guess the Dealer's <strong>Trap Word</strong> for a point bonus. <br><em>(Note: You only get the Bounty point if you survive the whole round.)</em></p>
 
             <h3 class="phase-tribunal">⚖️ Phase 3: The Tribunal</h3>
-            <p class="phase-desc">All the locked Safe Words are put on the screen anonymously. Players vote to eliminate any words that don't fit the prompt.<br>
-            <strong>⚠️ The Landmine:</strong> The Dealer's <strong>Decoy Word</strong> is hiding in this list! If you vote for the Decoy, you step on a landmine and lose 1 point.</p>
+            <p class="phase-desc">The Safe Words are shown to the players. Veto any words that don't fit the Prompt.<br>
+            <strong>⚠️ The Twist:</strong> The Dealer's <strong>Decoy Word</strong> is hiding in this list! If you vote for the Decoy, you lose points.</p>
 
             <h3 class="scoring-header">🏆 Scoring Breakdown</h3>
             <ul class="scoring-list">
                 <li><strong>✅ Survive:</strong> +1 point for dodging the trap and surviving the Tribunal.</li>
                 <li><strong>🎯 The Bounty:</strong> +1 bonus point for guessing the Trap Word.</li>
                 <li><strong>🍯 The Honeypot:</strong> -1 point for voting for the Dealer's Decoy.</li>
-                <li><strong>💥 Trapped or Vetoed:</strong> 0 points for the round.</li>
+                <li><strong>💥 Trapped:</strong> 0 points for the round. The Dealer gets 1 point per trap.</li>
+                <li><strong>💥 Vetoed:</strong> 0 points for the round.</li>
             </ul>
             
             <div class="secret-rule">
@@ -57,7 +60,10 @@
 
     <div id="roomHeader">
         Room Code: <span id="displayRoomCode" style="color: #2b6cb0; font-size: 1.2em;"></span>
+        <span id="displayPlayerName" style="color: #4a5568; font-weight: normal; margin-left: 10px;"></span>
         <span id="hostBadge" style="display:none; font-size: 0.8em; color: #c53030; margin-left: 10px;">(You are Host)</span>
+        
+        <button id="abortGameBtn" class="btn-kick" style="display: none; position: absolute; right: 15px; top: 12px; padding: 5px 10px;" onclick="returnLobby()">End Game</button>
         
         <div id="timerContainer">
             ⏳ <span id="timerLabel" style="font-weight: bold; color: #4a5568;"></span>
