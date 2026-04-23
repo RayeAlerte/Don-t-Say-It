@@ -1,13 +1,60 @@
-body { font-family: sans-serif; background-color: #f4f4f9; padding: 20px; text-align: center; }
-.panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; display: none; }
+/* --- 1. Global Reset & Mobile Foundations --- */
+* {
+    box-sizing: border-box; /* Prevents padding from blowing out 100% widths */
+}
+
+body { 
+    font-family: sans-serif; 
+    background-color: #f4f4f9; 
+    padding: 20px; 
+    text-align: center; 
+    margin: 0; /* Remove default browser margin */
+}
+
+.panel { 
+    background: white; 
+    padding: 20px; 
+    border-radius: 8px; 
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+    max-width: 600px; 
+    margin: 0 auto; 
+    display: none; 
+    width: 100%; /* Ensure panels don't overflow */
+}
 .active-panel { display: block; }
-input { padding: 10px; margin: 5px; width: 80%; border: 1px solid #ccc; border-radius: 4px; }
-input.error { border: 2px solid red; background-color: #fff5f5; }
-button { padding: 10px 20px; background: #2b6cb0; color: white; border: none; border-radius: 4px; cursor: pointer; margin: 5px; font-weight: bold; }
+
+/* --- 2. Touch-Optimized Inputs & Buttons --- */
+input { 
+    padding: 12px; /* Larger tap target */
+    margin: 8px 0; 
+    width: 100%; /* Swapped from 80% to 100% for better mobile layout */
+    border: 1px solid #ccc; 
+    border-radius: 6px; 
+    font-size: 16px; /* CRITICAL: Prevents iOS Safari from auto-zooming on focus */
+}
+input.error { 
+    border: 1px solid red; 
+    outline: 1px solid red; 
+    background-color: #fff5f5; 
+}
+
+button { 
+    padding: 12px 20px; /* Thicker for easier tapping */
+    background: #2b6cb0; 
+    color: white; 
+    border: none; 
+    border-radius: 6px; 
+    cursor: pointer; 
+    margin: 5px 0; 
+    font-weight: bold; 
+    font-size: 16px;
+    width: 100%; /* Default to full width on mobile */
+    max-width: 300px; /* Keep them from getting absurdly wide on desktop */
+}
 button:hover { background: #2c5282; }
 button:disabled { background: #a0aec0; cursor: not-allowed; }
 
-.btn-kick { background: #e53e3e; padding: 2px 5px; font-size: 0.8em; margin-left: 10px; }
+.btn-kick { background: #e53e3e; padding: 6px 12px; font-size: 0.85em; margin-left: 10px; width: auto; }
 .btn-kick:hover { background: #c53030; }
 .btn-secondary { background: #4a5568; }
 .btn-secondary:hover { background: #2d3748; }
@@ -18,11 +65,22 @@ button:disabled { background: #a0aec0; cursor: not-allowed; }
 .gold-streak { color: #d69e2e; font-weight: bold; text-shadow: 0 0 5px rgba(214,158,46,0.3); }
 .audience-tag { color: #718096; font-size: 0.8em; font-style: italic; }
 
-#roomHeader { display: none; background: #e2e8f0; padding: 15px; border-radius: 4px; margin-bottom: 20px; font-weight: bold; color: #4a5568; position: relative; }
+/* --- 3. Header & Timer --- */
+#roomHeader { 
+    display: none; 
+    background: #e2e8f0; 
+    padding: 15px; 
+    border-radius: 6px; 
+    margin-bottom: 20px; 
+    font-weight: bold; 
+    color: #4a5568; 
+    position: relative; 
+    text-align: center;
+}
 #timerContainer { display: none; font-size: 1.5em; margin-top: 10px; }
 
 /* Disconnect Overlay */
-#disconnectOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: white; z-index: 1000; flex-direction: column; justify-content: center; align-items: center; }
+#disconnectOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: white; z-index: 1000; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
 
 /* --- Global Toast Notifications --- */
 #globalToast {
@@ -39,20 +97,12 @@ button:disabled { background: #a0aec0; cursor: not-allowed; }
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.3s ease, top 0.3s ease;
+    width: 90%;
+    max-width: 400px;
 }
-
-#globalToast.show {
-    opacity: 1;
-    top: 30px;
-}
-
-#globalToast.error {
-    background-color: #e53e3e;
-}
-
-#globalToast.success {
-    background-color: #38a169;
-}
+#globalToast.show { opacity: 1; top: 30px; }
+#globalToast.error { background-color: #e53e3e; }
+#globalToast.success { background-color: #38a169; }
 
 /* --- Instructions Overlay --- */
 #instructions {
@@ -65,25 +115,36 @@ button:disabled { background: #a0aec0; cursor: not-allowed; }
     background: rgba(0,0,0,0.85);
     z-index: 2000;
     justify-content: center;
-    align-items: center;
+    /* CHANGED: Removed align-items: center. We use margin on the modal instead to prevent clipping */
+    align-items: flex-start; 
     padding: 20px;
     box-sizing: border-box;
+    /* NEW: Allows the dark background itself to scroll if the screen is incredibly tiny */
+    overflow-y: auto; 
+    -webkit-overflow-scrolling: touch; 
 }
 
 .instructions-modal {
     background: white;
-    padding: 30px;
+    padding: 25px;
     border-radius: 8px;
-    max-width: 650px;
-    max-height: 90vh;
+    max-width: 750px;
+    width: 100%;
+    max-height: 90vh; /* slightly reduced to ensure it fits with browser UI bars */
     overflow-y: auto;
+    
+    /* NEW: Forces iOS to use smooth native touch scrolling */
+    -webkit-overflow-scrolling: touch; 
+    
     text-align: left;
     color: #2d3748;
     box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    
+    /* NEW: This centers the modal vertically without clipping the top! */
+    margin: auto; 
 }
-
-.instructions-modal h1 { color: #2b6cb0; text-align: center; margin-top: 0; }
-.instructions-modal h3 { margin-bottom: 5px; }
+.instructions-modal h1 { color: #2b6cb0; text-align: center; margin-top: 0; font-size: 1.5em; }
+.instructions-modal h3 { margin-bottom: 5px; font-size: 1.1em; }
 
 .phase-dealer { color: #c53030; }
 .phase-response { color: #38a169; }
@@ -91,25 +152,58 @@ button:disabled { background: #a0aec0; cursor: not-allowed; }
 .scoring-header { color: #2b6cb0; }
 
 .phase-desc { margin-top: 5px; font-size: 0.95em; line-height: 1.4; }
-.example-text { color: #718096; font-style: italic; }
-.scoring-list { margin-top: 5px; padding-left: 20px; font-size: 0.95em; line-height: 1.5; }
+.example-text { color: #718096; font-style: italic; font-size: 0.9em; }
+.scoring-list { margin-top: 5px; padding-left: 20px; font-size: 0.9em; line-height: 1.5; }
 
 .secret-rule {
     background: #faf5ff;
     border-left: 4px solid #805ad5;
     padding: 12px;
     margin-top: 20px;
-    font-size: 0.9em;
+    font-size: 0.85em;
     color: #4a5568;
     border-radius: 0 4px 4px 0;
 }
 
-.btn-container { text-align: center; margin-top: 25px; }
-
-.btn-start {
-    font-size: 1.2em;
-    padding: 15px 40px;
-    background: #38a169;
-    box-shadow: 0 4px 6px rgba(56, 161, 105, 0.3);
-}
+.btn-container { text-align: center; margin-top: 20px; }
+.btn-start { background: #38a169; box-shadow: 0 4px 6px rgba(56, 161, 105, 0.3); max-width: 100%; }
 .btn-start:hover { background: #2f855a; }
+
+/* --- 4. Mobile Responsiveness (Media Queries) --- */
+@media (max-width: 600px) {
+    body {
+        padding: 10px; /* Reclaim horizontal space on small screens */
+    }
+
+    .panel {
+        padding: 15px; /* Tighter padding inside the panels */
+    }
+
+    #roomHeader {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        padding: 15px 10px;
+    }
+
+    #abortGameBtn {
+        position: relative !important; /* Overrides the absolute positioning from HTML */
+        right: auto !important;
+        top: auto !important;
+        width: 100%;
+        max-width: none;
+    }
+
+    /* Stack the timer inputs instead of a 2x2 grid so they are easy to tap */
+    #timerControls div[style*="display: grid"] {
+        grid-template-columns: 1fr !important; 
+    }
+
+    /* Ensure tribunal buttons wrap nicely and fill the screen */
+    #tribunalWords button {
+        width: 100%;
+        max-width: none;
+        padding: 15px;
+    }
+}

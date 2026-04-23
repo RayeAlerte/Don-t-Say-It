@@ -3,6 +3,7 @@
 <head>
     <title>Don't Say It!</title>
     <link rel="stylesheet" href="/static/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 </head>
 <body>
 
@@ -72,6 +73,7 @@
     </div>
 
     <div id="connectPanel" class="panel active-panel">
+        <p><a href="https://github.com/RayeAlerte" style="padding:0;color: black;">alerte.tech on github</a></p>
         <h2>Join Game</h2>
         <input type="text" id="roomCode" placeholder="Room Code (e.g., ABCD)" value="ABCD"><br>
         <input type="text" id="playerName" placeholder="Your Name"><br>
@@ -89,7 +91,7 @@
             </select>
             <div id="rulesetDescription" style="font-size: 0.85em; color: #4a5568; margin-top: 5px;"></div>
         </div>
-        <div id="timerControls" style="margin: 10px 0; text-align: left; background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+        <div id="timerControls" style="margin: 10px 0; text-align: center; background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
             <strong>Round Timer Settings</strong>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
                 <label>Dealer Time (s) <input type="number" id="dealerTimeInput" min="5" max="120"></label>
