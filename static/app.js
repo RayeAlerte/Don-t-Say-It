@@ -72,9 +72,24 @@ function switchPanel(panelId) {
     document.getElementById(panelId).classList.add('active-panel');
 }
 
-function showToast(msg) {
-    document.querySelectorAll("#toast, .dealer-toast").forEach(el => el.innerText = msg);
-    setTimeout(() => document.querySelectorAll("#toast, .dealer-toast").forEach(el => el.innerText = ""), 3000);
+// Dismiss the initial instructions screen
+function closeInstructions() {
+    document.getElementById("instructions").style.display = "none";
+    document.getElementById("playerName").focus();
+}
+
+function showToast(msg, type = "error") {
+    const toast = document.getElementById("globalToast");
+    if (!toast) return;
+    
+    toast.innerText = msg;
+    // Set the class to show it, and assign the color based on the type
+    toast.className = `show ${type}`;
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+        toast.classList.remove("show");
+    }, 3000);
 }
 
 function squashWord(word) {
@@ -144,14 +159,18 @@ function establishWebSocket() {
     
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
+        
         if (data.action === "rejected") {
-            showToast(data.message);
+            showToast(data.message, "error"); // Explicitly trigger red error toast
             document.getElementById("safeWord").value = ""; 
             if(data.message.includes("banned") || data.message.includes("kicked")) {
                 ws.close();
                 alert(data.message);
                 location.reload();
             }
+        } else if (data.action === "success") {
+            // NEW: Actually tell the user when their action succeeded!
+            showToast(data.message, "success"); 
         } else if (data.action === "fill_prompt") {
             document.getElementById("dealerPrompt").value = data.prompt;
             document.getElementById("dealerTrap").focus();
@@ -392,7 +411,7 @@ function renderState(state) {
             }
             
             if (voteData && voteData.total > 0) {
-                logs.push(`<span style='color:#4a5568'>⚖️ VOTE ACCURACY (${voteData.hits}/${voteData.total})</span>`);
+                logs.push(`<span style='color:#4a5568'>⚖️ ACCURACY (${voteData.hits}/${voteData.total})</span>`);
             }
 
             let rowStyle = isMindReader ? "background: #faf5ff; border-left: 4px solid #805ad5;" : "background: #fff;";

@@ -23,3 +23,93 @@ button:disabled { background: #a0aec0; cursor: not-allowed; }
 
 /* Disconnect Overlay */
 #disconnectOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: white; z-index: 1000; flex-direction: column; justify-content: center; align-items: center; }
+
+/* --- Global Toast Notifications --- */
+#globalToast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 24px;
+    border-radius: 8px;
+    color: white;
+    font-weight: bold;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 9999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, top 0.3s ease;
+}
+
+#globalToast.show {
+    opacity: 1;
+    top: 30px;
+}
+
+#globalToast.error {
+    background-color: #e53e3e;
+}
+
+#globalToast.success {
+    background-color: #38a169;
+}
+
+/* --- Instructions Overlay --- */
+#instructions {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.85);
+    z-index: 2000;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.instructions-modal {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    max-width: 650px;
+    max-height: 90vh;
+    overflow-y: auto;
+    text-align: left;
+    color: #2d3748;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+
+.instructions-modal h1 { color: #2b6cb0; text-align: center; margin-top: 0; }
+.instructions-modal h3 { margin-bottom: 5px; }
+
+.phase-dealer { color: #c53030; }
+.phase-response { color: #38a169; }
+.phase-tribunal { color: #dd6b20; }
+.scoring-header { color: #2b6cb0; }
+
+.phase-desc { margin-top: 5px; font-size: 0.95em; line-height: 1.4; }
+.example-text { color: #718096; font-style: italic; }
+.scoring-list { margin-top: 5px; padding-left: 20px; font-size: 0.95em; line-height: 1.5; }
+
+.secret-rule {
+    background: #faf5ff;
+    border-left: 4px solid #805ad5;
+    padding: 12px;
+    margin-top: 20px;
+    font-size: 0.9em;
+    color: #4a5568;
+    border-radius: 0 4px 4px 0;
+}
+
+.btn-container { text-align: center; margin-top: 25px; }
+
+.btn-start {
+    font-size: 1.2em;
+    padding: 15px 40px;
+    background: #38a169;
+    box-shadow: 0 4px 6px rgba(56, 161, 105, 0.3);
+}
+.btn-start:hover { background: #2f855a; }

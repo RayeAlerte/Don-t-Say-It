@@ -5,6 +5,7 @@ class ActionPayload(BaseModel):
     action: str = Field(..., description="The event type: join, lock_trap, lock_word, bounty_guess")
     prompt: Optional[str] = None
     word: Optional[str] = None
+    decoy: Optional[str] = None
     ruleset: Optional[str] = None
     dealer_time: Optional[int] = None
     response_time: Optional[int] = None

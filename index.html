@@ -9,11 +9,50 @@
     <audio id="sfxDing" src="." preload="auto"></audio>
     <audio id="sfxBuzzer" src="." preload="auto"></audio>
     <audio id="sfxTick" src="." preload="auto"></audio>
+    <div id="globalToast"></div>
 
     <div id="disconnectOverlay">
         <h1 style="color: #fc8181;">Connection Lost!</h1>
         <p>You have disconnected from the server.</p>
         <button onclick="reconnectSync()" style="font-size: 1.2em; padding: 15px 30px;">Rejoin & Sync Game</button>
+    </div>
+
+    <div id="instructions">
+        <div class="instructions-modal">
+            <h1>📖 How to Play</h1>
+
+            <p><strong>The Premise:</strong> One player is the Dealer; everyone else is trying to survive. The Dealer sets a trap, and you have time to dodge it.</p>
+
+            <h3 class="phase-dealer">🃏 Phase 1: The Dealer's Trap</h3>
+            <p class="phase-desc">The Dealer chooses a category (the <strong>Prompt</strong>) and secretly locks in a forbidden answer (the <strong>Trap Word</strong>).<br>
+            <span class="example-text">Example Prompt: "Name a fast food chain" | Trap Word: "McDonald's"</span><br>
+            The Dealer also sets a secret <strong>Decoy Word</strong> to trick the other players during the voting phase.</p>
+
+            <h3 class="phase-response">🏃 Phase 2: The Response</h3>
+            <p class="phase-desc">As a Responder, you have two jobs:<br>
+            1. <strong>Survive:</strong> Type a <strong>Safe Word</strong> that fits the Prompt. If you type the Trap Word, you explode and forfeit the round. You must be fast—no two players can lock in the same word!<br>
+            2. <strong>The Bounty (Side-Bet):</strong> Once you are safe, try to read the Dealer's mind. Guess their exact Trap Word for a bonus point. <em>(Note: You only get the Bounty point if you survive the whole round.)</em></p>
+
+            <h3 class="phase-tribunal">⚖️ Phase 3: The Tribunal</h3>
+            <p class="phase-desc">All the locked Safe Words are put on the screen anonymously. Players vote to eliminate any words that don't fit the prompt.<br>
+            <strong>⚠️ The Landmine:</strong> The Dealer's <strong>Decoy Word</strong> is hiding in this list! If you vote for the Decoy, you step on a landmine and lose 1 point.</p>
+
+            <h3 class="scoring-header">🏆 Scoring Breakdown</h3>
+            <ul class="scoring-list">
+                <li><strong>✅ Survive:</strong> +1 point for dodging the trap and surviving the Tribunal.</li>
+                <li><strong>🎯 The Bounty:</strong> +1 bonus point for guessing the Trap Word.</li>
+                <li><strong>🍯 The Honeypot:</strong> -1 point for voting for the Dealer's Decoy.</li>
+                <li><strong>💥 Trapped or Vetoed:</strong> 0 points for the round.</li>
+            </ul>
+            
+            <div class="secret-rule">
+                <strong>🧠 Secret Rule (Mind Reader Alliance):</strong> If your Safe Word exactly matches the Dealer's Decoy Word, you are granted absolute immunity and survive the round even if the Tribunal votes you out!
+            </div>
+
+            <div class="btn-container">
+                <button class="btn-start" onclick="closeInstructions()">Got it, let's play!</button>
+            </div>
+        </div>
     </div>
 
     <div id="roomHeader">
