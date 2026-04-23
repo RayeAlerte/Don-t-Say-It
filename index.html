@@ -274,9 +274,11 @@
         }
 
         function establishWebSocket() {
-            ws = new WebSocket(`ws://${window.location.host}/ws/${myRoom}/${myName}`);
+            // Dynamically choose wss:// for HTTPS, and ws:// for local HTTP
+            const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws/${myRoom}/${myName}`);
             
-            ws.onopen = () => { 
+            ws.onopen = () => {
                 document.getElementById("connectPanel").style.display = "none"; 
                 document.getElementById("disconnectOverlay").style.display = "none";
                 
