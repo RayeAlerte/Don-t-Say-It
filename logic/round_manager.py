@@ -116,13 +116,10 @@ def advance_to_tribunal(room: Room):
     pool = []
     for p in room.get_active_players().values():
         if not p.is_dealer and p.locked_word:
-            
-            # --- NEW: Hide the Trap Word from the Tribunal ---
+            if p.timed_out:
+                continue  # Don't pollute the tribunal with "cornball"
             if is_match(p.locked_word, room.trap_word):
-                continue # Skip it! Let them panic when they don't see their word.
-            # -------------------------------------------------
-            
-            # Only add the word to the pool if a fuzzy match doesn't already exist
+                continue
             if not any(is_match(p.locked_word, w) for w in pool):
                 pool.append(p.locked_word)
     
@@ -136,6 +133,8 @@ def advance_to_tribunal(room: Room):
     random.shuffle(room.words_to_vote)
 
 def resolve_round(room: Room):
+    if room.phase == "reveal":   # Already resolved, bail out
+        return
     room.phase = "reveal"
     dealer = room.players[room.current_dealer]
     zero_point_players = set()
@@ -167,14 +166,14 @@ def resolve_round(room: Room):
             if len(voters) > threshold:
                 room.vetoed_words.append(word)
 
-    # 2. Spring the Honeypot Penalty
-    if room.decoy_word and any(is_match(room.decoy_word, w) for w in room.vetoed_words):
-        # Find which exact string they voted out
-        target_decoy = next(w for w in room.vetoed_words if is_match(room.decoy_word, w))
-        for voter_name in room.veto_votes.get(target_decoy, []):
-            if voter_name in room.players:
-                room.players[voter_name].score -= 1
-                room.players[voter_name].caught_in_honeypot = True
+    # 2. Spring the Honeypot Penalty (Individual Punishment)
+    if room.decoy_word: # <-- This must be the only condition!
+        for word, voters in room.veto_votes.items():
+            if is_match(room.decoy_word, word):
+                for voter_name in voters:
+                    if voter_name in room.players:
+                        room.players[voter_name].score = max(0, room.players[voter_name].score - 1)
+                        room.players[voter_name].caught_in_honeypot = True
     
     # 2.5 Vote Accuracy Tracking
     for p in room.get_active_players().values():
@@ -204,34 +203,33 @@ def resolve_round(room: Room):
             is_mind_reader = room.decoy_word and is_match(p.locked_word, room.decoy_word)
             is_vetoed = any(is_match(p.locked_word, w) for w in room.vetoed_words)
             
-            if is_match(p.locked_word, room.trap_word):
-                dealer.score += 1 
-                p.streak = 0 
+            if p.timed_out:
+                zero_point_players.add(p.name)
+            elif is_match(p.locked_word, room.trap_word):
+                dealer.score += 1
+                p.streak = 0
                 zero_point_players.add(p.name)
             elif is_mind_reader:
-                # The Alliance! They survive even if vetoed
                 p.score += 1
                 p.streak += 1
                 p.mind_reader = True
             elif is_vetoed:
-                p.streak = 0 # 0 points
+                p.streak = 0
                 zero_point_players.add(p.name)
-            elif not p.timed_out:
-                p.score += 1 
-                p.streak += 1 
             else:
-                zero_point_players.add(p.name)
-            
-        # Bounties
-        can_score_bounty = (
-            p.role == "audience" or
-            (p.role == "active" and p.name not in zero_point_players)
-        )
-        if can_score_bounty and p.bounty_guess and is_match(p.bounty_guess, room.trap_word):
-            p.score += 1 
-            if dealer_bounty_awards < DEALER_BOUNTY_CAP:
-                dealer.score += 1
-                dealer_bounty_awards += 1
+                p.score += 1
+                p.streak += 1
+        
+    # Bounties
+    can_score_bounty = (
+        p.role == "audience" or
+        (p.role == "active" and p.name not in zero_point_players)
+    )
+    if can_score_bounty and p.bounty_guess and is_match(p.bounty_guess, room.trap_word):
+        p.score += 1 
+        if dealer_bounty_awards < DEALER_BOUNTY_CAP:
+            dealer.score += 1
+            dealer_bounty_awards += 1
 
 def next_round(room: Room):
     if room.current_round >= room.round_limit:

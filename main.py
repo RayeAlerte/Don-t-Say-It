@@ -224,8 +224,8 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
                         # --- NEW: VIP Bypass for the Trap Word ---
                         if round_manager.is_match(word, room.trap_word):
                             player.locked_word = word
-                            await websocket.send_json({"action": "success", "message": "Word locked!"})
-                            
+                            await websocket.send_json({"action": "trapped", "message": "💥 TRAPPED! You hit the Trap Word!"})
+                                                    
                             # Check if this trap victim was the final player to lock in
                             if room.all_responders_locked():
                                 round_manager.advance_to_tribunal(room)

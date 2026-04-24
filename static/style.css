@@ -1,6 +1,7 @@
 /* --- 1. Global Reset & Mobile Foundations --- */
 * {
     box-sizing: border-box; /* Prevents padding from blowing out 100% widths */
+    font-family: "Besley";
 }
 
 body { 
@@ -11,12 +12,19 @@ body {
     margin: 0; /* Remove default browser margin */
 }
 
+h2{
+    margin: 0px;
+}
+p{
+    margin: 0 0 5px 0px;
+}
+
 .panel { 
     background: white; 
-    padding: 20px; 
-    border-radius: 8px; 
+    padding: 20px 50px 20px 50px; 
+    border-radius: 15px; 
     box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
-    max-width: 600px; 
+    max-width: 750px; 
     margin: 0 auto; 
     display: none; 
     width: 100%; /* Ensure panels don't overflow */
@@ -29,7 +37,7 @@ input {
     margin: 8px 0; 
     width: 100%; /* Swapped from 80% to 100% for better mobile layout */
     border: 1px solid #ccc; 
-    border-radius: 6px; 
+    border-radius: 15px; 
     font-size: 16px; /* CRITICAL: Prevents iOS Safari from auto-zooming on focus */
 }
 input.error { 
@@ -43,7 +51,7 @@ button {
     background: #2b6cb0; 
     color: white; 
     border: none; 
-    border-radius: 6px; 
+    border-radius: 15px; 
     cursor: pointer; 
     margin: 5px 0; 
     font-weight: bold; 
@@ -70,14 +78,17 @@ button:disabled { background: #a0aec0; cursor: not-allowed; }
     display: none; 
     background: #e2e8f0; 
     padding: 15px; 
-    border-radius: 6px; 
+    border-radius: 15px; 
     margin-bottom: 20px; 
     font-weight: bold; 
     color: #4a5568; 
-    position: relative; 
+    position:relative; 
     text-align: center;
+    width: 100%;
 }
 #timerContainer { display: none; font-size: 1.5em; margin-top: 10px; }
+#timerControls{ margin: 10px 0; text-align: center; background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 15px; padding: 10px;}
+
 
 /* Disconnect Overlay */
 #disconnectOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: white; z-index: 1000; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
@@ -127,7 +138,7 @@ button:disabled { background: #a0aec0; cursor: not-allowed; }
 .instructions-modal {
     background: white;
     padding: 25px;
-    border-radius: 8px;
+    border-radius: 25px;
     max-width: 750px;
     width: 100%;
     max-height: 90vh; /* slightly reduced to ensure it fits with browser UI bars */
@@ -135,6 +146,7 @@ button:disabled { background: #a0aec0; cursor: not-allowed; }
     
     /* NEW: Forces iOS to use smooth native touch scrolling */
     -webkit-overflow-scrolling: touch; 
+
     
     text-align: left;
     color: #2d3748;
@@ -169,7 +181,119 @@ button:disabled { background: #a0aec0; cursor: not-allowed; }
 .btn-start { background: #38a169; box-shadow: 0 4px 6px rgba(56, 161, 105, 0.3); max-width: 100%; }
 .btn-start:hover { background: #2f855a; }
 
-/* --- 4. Mobile Responsiveness (Media Queries) --- */
+/* --- 4. Dark Mode --- */
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #1a1d2e;
+        color: #e2e8f0;
+    }
+
+    .panel {
+        background: #242736;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.4);
+    }
+
+    input {
+        background: #2d3148;
+        border-color: #4a5080;
+        color: #e2e8f0;
+    }
+    input::placeholder { color: #718096; }
+    input.error {
+        background-color: #3d1f1f;
+        border-color: #e53e3e;
+    }
+
+    button { background: #3b82c4; }
+    button:hover { background: #2b6cb0; }
+    button:disabled { background: #4a5568; }
+
+    .btn-kick { background: #c53030; }
+    .btn-kick:hover { background: #9b2c2c; }
+    .btn-secondary { background: #4a5568; }
+    .btn-secondary:hover { background: #2d3748; }
+
+    .scoreboard { border-top-color: #3a3f5c; }
+
+    #roomHeader {
+        background: #2d3148;
+        color: #a0aec0;
+    }
+
+    #timerControls {
+        background: #2d3148;
+        border-color: #3a3f5c;
+    }
+
+    select {
+        background: #2d3148;
+        border-color: #4a5080;
+        color: #e2e8f0;
+    }
+
+    /* Instructions modal */
+    .instructions-modal {
+        background: #242736;
+        color: #e2e8f0;
+    }
+    .instructions-modal h1 { color: #63b3ed; }
+    .phase-dealer { color: #fc8181; }
+    .phase-response { color: #68d391; }
+    .phase-tribunal { color: #f6ad55; }
+    .scoring-header { color: #63b3ed; }
+    .example-text { color: #a0aec0; }
+    .secret-rule {
+        background: #2d2640;
+        color: #cbd5e0;
+        border-left-color: #9f7aea;
+    }
+    .btn-start { background: #2f855a; }
+    .btn-start:hover { background: #276749; }
+
+    /* Inline color overrides used in app.js-generated HTML */
+    /* Room code blue */
+    #displayRoomCode { color: #63b3ed !important; }
+    /* Dealer panel heading */
+    #dealerTrapPanel h2 { color: #fc8181; }
+    /* Play panel prompt */
+    #displayPrompt { color: #63b3ed !important; }
+    /* Tribunal prompt */
+    #tribunalPromptDisplay { color: #63b3ed !important; }
+    /* Reveal panel trap word */
+    #revealTrapWord { color: #fc8181; }
+    /* Reveal panel decoy */
+    #revealDecoyWord { color: #f6ad55; }
+    /* Reveal list background */
+    #revealList { background: #2d3148; }
+
+    /* Tribunal word buttons (unselected state) */
+    #tribunalWords button {
+        background: #2d3148 !important;
+        color: #e2e8f0 !important;
+        border-color: #4a5080 !important;
+    }
+
+    /* Lobby wait text */
+    #lobbyWaitText { color: #63b3ed; }
+
+    /* Toast */
+    #globalToast.error { background-color: #c53030; }
+    #globalToast.success { background-color: #276749; }
+
+    /* Reveal card backgrounds generated by app.js */
+    /* Mind reader card */
+    [style*="background: #faf5ff"] { background: #2d2640 !important; }
+    /* Audience card */
+    [style*="background: #f0fff4"] { background: #1c2e26 !important; }
+    /* Dealer banner */
+    [style*="background: #ebf8ff"] { background: #1e2d3d !important; border-color: #3182ce !important; }
+    /* Default card */
+    [style*="background: #fff"] { background: #2d3148 !important; }
+    /* Reveal list wrapper */
+    [style*="background: #f7fafc"] { background: #2d3148 !important; }
+}
+
+/* --- 5. Mobile Responsiveness (Media Queries) --- */
 @media (max-width: 600px) {
     body {
         padding: 10px; /* Reclaim horizontal space on small screens */
@@ -193,11 +317,6 @@ button:disabled { background: #a0aec0; cursor: not-allowed; }
         top: auto !important;
         width: 100%;
         max-width: none;
-    }
-
-    /* Stack the timer inputs instead of a 2x2 grid so they are easy to tap */
-    #timerControls div[style*="display: grid"] {
-        grid-template-columns: 1fr !important; 
     }
 
     /* Ensure tribunal buttons wrap nicely and fill the screen */

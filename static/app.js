@@ -179,6 +179,11 @@ function establishWebSocket() {
             ws.send(JSON.stringify({ action: "latency_update", latency_ms: Math.max(0, rtt / 2) }));
         } else if (data.action === "state_update") {
             renderState(data);
+        } else if (data.action === "trapped") {
+            showToast(data.message, "error");
+            playSound("sfxBuzzer");
+            document.getElementById("safeWordZone").style.display = "none";
+            document.getElementById("bountyZone").style.display = "none";
         }
     };
 
@@ -304,6 +309,9 @@ function renderState(state) {
         } else {
             switchPanel("responderWaitPanel");
             document.getElementById("currentDealerName").innerText = state.dealer;
+            // --- NEW: Cleanly reset inputs for the new round here! ---
+            document.getElementById("safeWord").value = "";
+            document.getElementById("bountyWord").value = "";
         }
     
     } else if (state.phase === "response_phase") {
@@ -332,14 +340,20 @@ function renderState(state) {
                 if (!me.locked) {
                     document.getElementById("safeWordZone").style.display = "block";
                     document.getElementById("bountyZone").style.display = "none";
-                    document.getElementById("safeWord").focus();
+                    if (document.activeElement.id !== "safeWord") document.getElementById("safeWord").focus();
                 } else if (!me.bounty_locked) {
                     document.getElementById("safeWordZone").style.display = "none";
                     document.getElementById("bountyZone").style.display = "block";
-                    document.getElementById("bountyWord").value = "";
-                    document.getElementById("bountyWord").focus();
+                    // --- NEW: Toggle the inner zones safely ---
+                    document.getElementById("bountyInputZone").style.display = "block";
+                    document.getElementById("bountyWaitZone").style.display = "none";
+                    if (document.activeElement.id !== "bountyWord") document.getElementById("bountyWord").focus();
                 } else {
-                    document.getElementById("bountyZone").innerHTML = "<p>Waiting for others to finish...</p>";
+                    document.getElementById("safeWordZone").style.display = "none";
+                    document.getElementById("bountyZone").style.display = "block";
+                    // --- NEW: Show the wait message without destroying the inputs ---
+                    document.getElementById("bountyInputZone").style.display = "none";
+                    document.getElementById("bountyWaitZone").style.display = "block";
                 }
             }
         }
@@ -414,7 +428,7 @@ function renderState(state) {
                 }
             }
 
-            if (pData && pData.caught) {
+            if (pData && pData.caught_in_honeypot && !hasZeroPoints) {
                 pointsEarned -= 1;
                 logs.push("<span style='color:#dd6b20'>🍯 HONEYPOT (-1 pt)</span>");
             }
@@ -433,12 +447,33 @@ function renderState(state) {
                     <div style="font-size: 0.85em; margin-top: 5px;">${logs.join(' | ')}</div>
                 </div>`;
         }
+        for (const [pName, bounty] of Object.entries(state.revealed_bounties)) {
+            // Skip active players — already handled above
+            let pData = state.players.find(p => p.name === pName);
+            if (!pData || pData.role !== "audience") continue;
+            
+            if (bounty && isMatch(bounty, state.trap_word)) {
+                let audienceLog = "<span style='color:#38a169'>🎯 BOUNTY (+1 pt)</span>";
+                if (bountyFarmedCount < 2) {
+                    bountyFarmedCount++;
+                    dealerPoints++;
+                }
+                revealHTML += `
+                    <div style="margin-bottom: 10px; padding: 10px; border-radius: 5px; background: #f0fff4; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <div style="display: flex; justify-content: space-between;">
+                            <strong>${pName}: <span style="color:#718096"><em>(VIP Audience)</em></span></strong>
+                            <strong>Net: +1</strong>
+                        </div>
+                        <div style="font-size: 0.85em; margin-top: 5px;">${audienceLog}</div>
+                    </div>`;
+            }
+        }
 
         let dealerBanner = `
             <div style="margin-bottom: 20px; padding: 15px; border-radius: 6px; background: #ebf8ff; border: 2px solid #3182ce; text-align: left;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <h3 style="margin: 0; color: #2b6cb0;">🃏 Dealer: ${state.dealer}</h3>
-                    <strong style="font-size: 1.2em; color: ${dealerPoints > 0 ? '#38a169' : '#718096'};">Net: +${dealerPoints}</strong>
+                    <strong style="font-size: 1.2em; color: ${dealerPoints > 0 ? '#38a169' : '#718096'};">Net: ${dealerPoints > 0 ? '+' : ''}${dealerPoints}</strong>
                 </div>
                 <div style="font-size: 0.9em; margin-top: 5px; color: #4a5568;">
                     ${trappedCount} Trapped | ${bountyFarmedCount} Bounties Farmed (Max 2)
