@@ -198,7 +198,6 @@ def resolve_round(room: Room):
     # 3. Standard Scoring
     for p in room.players.values():
         if p.is_dealer: continue
-            
         if p.role == "active":
             is_mind_reader = room.decoy_word and is_match(p.locked_word, room.decoy_word)
             is_vetoed = any(is_match(p.locked_word, w) for w in room.vetoed_words)
@@ -221,15 +220,17 @@ def resolve_round(room: Room):
                 p.streak += 1
         
     # Bounties
-    can_score_bounty = (
-        p.role == "audience" or
-        (p.role == "active" and p.name not in zero_point_players)
-    )
-    if can_score_bounty and p.bounty_guess and is_match(p.bounty_guess, room.trap_word):
-        p.score += 1 
-        if dealer_bounty_awards < DEALER_BOUNTY_CAP:
-            dealer.score += 1
-            dealer_bounty_awards += 1
+    for p in room.players.values():
+        if p.is_dealer: continue
+        can_score_bounty = (
+            p.role == "audience" or
+            (p.role == "active" and p.name not in zero_point_players)
+        )
+        if can_score_bounty and p.bounty_guess and is_match(p.bounty_guess, room.trap_word):
+            p.score += 1
+            if dealer_bounty_awards < DEALER_BOUNTY_CAP:
+                dealer.score += 1
+                dealer_bounty_awards += 1
 
 def next_round(room: Room):
     if room.current_round >= room.round_limit:
