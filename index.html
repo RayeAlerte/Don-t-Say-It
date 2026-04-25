@@ -91,7 +91,7 @@
                 <option value="classic">Classic</option>
                 <option value="competitive">Competitive (A/B)</option>
             </select>
-            <div id="rulesetDescription" style="font-size: 0.85em; color: #4a5568; margin-top: 5px;"></div>
+            <div id="rulesetDescription"></div>
         </div>
         <div id="timerControls">
             <strong>Round Timer Settings</strong>
@@ -102,7 +102,7 @@
                 <label>Resolve Time (s) <input type="number" id="revealTimeInput" min="5" max="120"></label>
             </div>
             <button id="saveTimersBtn" onclick="saveTimers()" style="margin-top: 8px;">Save Timers</button>
-            <div style="font-size: 0.8em; color: #718096;">Defaults: 30 / 10 / 10 / 10</div>
+            <div id="timerDefaults">Defaults: 30 / 10 / 10 / 10</div>
         </div>
         <div id="lobbyPlayers" class="scoreboard"></div>
         <button id="startGameBtn" onclick="startGame()" style="display: none; margin-top: 15px;">Start Game</button>

@@ -88,7 +88,8 @@ button:disabled { background: #a0aec0; cursor: not-allowed; }
 }
 #timerContainer { display: none; font-size: 1.5em; margin-top: 10px; }
 #timerControls{ margin: 10px 0; text-align: center; background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 15px; padding: 10px;}
-
+#rulesetDescription { font-size: 0.85em; margin-top: 5px; color: #718096; }
+#timerDefaults{ font-size: 0.8em; color: #718096; }
 
 /* Disconnect Overlay */
 #disconnectOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: white; z-index: 1000; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
@@ -218,6 +219,14 @@ button:disabled { background: #a0aec0; cursor: not-allowed; }
     #roomHeader {
         background: #2d3148;
         color: #a0aec0;
+    }
+
+    #rulesetDescription {
+        color: #a0aec0 !important;
+    }
+
+    #timerDefaults{
+        color: #a0aec0 !important;
     }
 
     #timerControls {
