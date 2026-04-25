@@ -32,7 +32,10 @@ async def room_cleaner():
         now = time.time()
         stale_rooms = [
             code for code, r in active_rooms.items()
-            if now - r.last_activity > 300 and not any(p.connected for p in r.players.values())
+            if now - r.last_activity > 300 and not any(
+                p.connected and p.ws.client_state.value == 1  # 1 = CONNECTED in Starlette
+                for p in r.players.values()
+            )
         ]
         for code in stale_rooms:
             del active_rooms[code]
@@ -114,14 +117,14 @@ async def broadcast_state(room: Room):
             {
                 "name": p.name, 
                 "score": p.score,
-                "streak": getattr(p, 'streak', 0), 
-                "role": getattr(p, 'role', 'active'),
+                "streak": p.streak,
+                "role": p.role,
                 "is_dealer": p.is_dealer,
                 "locked": p.locked_word is not None,
                 "bounty_locked": p.bounty_guess is not None,
-                "caught": getattr(p, 'caught_in_honeypot', False),
-                "mind_reader": getattr(p, 'mind_reader', False),
-                "timed_out": getattr(p, 'timed_out', False),
+                "caught": p.caught_in_honeypot,
+                "mind_reader": p.mind_reader,
+                "timed_out": p.timed_out,
                 "vote_accuracy_hits": getattr(p, 'vote_accuracy_hits', 0),
                 "vote_accuracy_total": getattr(p, 'vote_accuracy_total', 0),
                 "my_vetoes": [w for w, voters in room.veto_votes.items() if p.name in voters]
@@ -384,8 +387,23 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
     except WebSocketDisconnect:
         player.connected = False
         room.last_activity = time.time()
-        
+
         if room.host == player.name:
             assign_new_host(room)
-            
+
+        if room.phase == "lobby":
+            del room.players[player.name]
+        else:
+            async def delayed_removal(room_code, name, disconnect_time):
+                await asyncio.sleep(120)
+                r = active_rooms.get(room_code)
+                if not r: return
+                p = r.players.get(name)
+                if p and not p.connected and p.disconnect_time == disconnect_time:
+                    del r.players[name]
+                    await broadcast_state(r)
+
+            player.disconnect_time = time.time()
+            asyncio.create_task(delayed_removal(room.code, player.name, player.disconnect_time))
+
         await broadcast_state(room)

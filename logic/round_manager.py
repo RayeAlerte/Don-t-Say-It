@@ -61,6 +61,9 @@ def levenshtein(s1: str, s2: str) -> int:
         previous_row = current_row
     return previous_row[-1]
 
+# NOTE: This is the AUTHORITATIVE matching function.
+# A mirror exists in app.js for client-side optimistic UI.
+# Keep both in sync when changing thresholds.
 def is_match(word1: str, word2: str) -> bool:
     w1, w2 = squash_word(word1), squash_word(word2)
     if not w1 or not w2: return False

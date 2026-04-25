@@ -18,6 +18,7 @@ class Player:
         self.bounty_guess: Optional[str] = None
         self.is_dealer: bool = False
         self.timed_out: bool = False 
+        self.disconnect_time: float = 0.0
         
         # NEW: Round specific UI flags
         self.caught_in_honeypot: bool = False

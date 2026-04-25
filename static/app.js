@@ -114,7 +114,9 @@ function levenshtein(s1, s2) {
     }
     return previousRow[previousRow.length - 1];
 }
-
+// NOTE: This is a CLIENT-SIDE MIRROR of round_manager.py::is_match().
+// Used for optimistic UI only. The server is always authoritative.
+// If you change the thresholds here, update round_manager.py to match.
 function isMatch(word1, word2) {
     let w1 = squashWord(word1);
     let w2 = squashWord(word2);
