@@ -72,6 +72,19 @@ function switchPanel(panelId) {
     document.getElementById(panelId).classList.add('active-panel');
 }
 
+// Defense-in-depth: server already sanitizes words/names, but ANY innerHTML
+// interpolation goes through this. If the server ever changes and lets an
+// unsanitized string through, this keeps the DOM safe.
+function escapeHTML(s) {
+    if (s === null || s === undefined) return "";
+    return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
 // Dismiss the initial instructions screen
 function closeInstructions() {
     document.getElementById("instructions").style.display = "none";
@@ -253,8 +266,8 @@ function renderState(state) {
             let styleClass = p.streak >= 3 ? "gold-streak" : "";
             let tag = p.role === "audience" ? `<span class="audience-tag">(VIP Audience)</span>` : "";
             let acc = p.vote_accuracy_total > 0 ? ` • Tribunal IQ: ${Math.round((p.vote_accuracy_hits / p.vote_accuracy_total) * 100)}%` : "";
-            let kickBtn = (isHost && p.name !== myName) ? `<button class="btn-kick" onclick="kickPlayer('${p.name}')">Kick</button>` : "";
-            return `<div class="${styleClass}">${p.name} ${tag}${acc} ${kickBtn}</div>`;
+            let kickBtn = (isHost && p.name !== myName) ? `<button class="btn-kick" onclick='kickPlayer(${JSON.stringify(p.name)})'>Kick</button>` : "";
+            return `<div class="${styleClass}">${escapeHTML(p.name)} ${tag}${acc} ${kickBtn}</div>`;
         }).join('');
         
         const startBtn = document.getElementById("startGameBtn");
@@ -365,10 +378,20 @@ function renderState(state) {
         document.getElementById("tribunalPromptDisplay").innerText = `"${state.prompt}"`;
         
         let html = "";
-        for (const word of state.words_to_vote) {
-            let isSelected = me.my_vetoes.includes(word);
-            let color = isSelected ? "background: #e53e3e; color: white;" : "background: #edf2f7; color: black;";
-            html += `<button style="${color} border: 1px solid #cbd5e0; border-radius: 8px; padding: 15px; font-size: 1.1em;" onclick="toggleVeto('${word}')">${word}</button>`;
+        if (isDealer) {
+            // Dealers see the trap and the decoy — letting them vote would poison
+            // the tribunal. Server rejects their toggle_veto anyway; the UI just
+            // reflects that with a read-only view.
+            html = `<p style="color:#718096; font-style: italic;">You are the Dealer. Watch the tribunal — you cannot vote.</p>`;
+            for (const word of state.words_to_vote) {
+                html += `<button type="button" class="tribunal-vote tribunal-vote--off" disabled>${escapeHTML(word)}</button>`;
+            }
+        } else {
+            for (const word of state.words_to_vote) {
+                let isSelected = me.my_vetoes.includes(word);
+                let cls = isSelected ? "tribunal-vote tribunal-vote--on" : "tribunal-vote tribunal-vote--off";
+                html += `<button type="button" class="${cls}" onclick='toggleVeto(${JSON.stringify(word)})'>${escapeHTML(word)}</button>`;
+            }
         }
         
         if (state.words_to_vote.length === 0) {
@@ -397,6 +420,11 @@ function renderState(state) {
             let isVetoed = state.vetoed_words.some(v => isMatch(pWord, v));
             let hasZeroPoints = false;
 
+            // Priority chain — must match the canonical scoring model in
+            // logic/round_manager.py::resolve_round (see docstring). Only ONE
+            // of these branches runs per player, so honeypot can't stack with
+            // survival. Tests exercise the parity via a Python mirror in
+            // tests/test_edge_cases.py::_client_side_points.
             if (pData && pData.timed_out) {
                 logs.push("<span style='color:#e53e3e'>🌽 AFK (0 pts)</span>");
                 hasZeroPoints = true;
@@ -407,12 +435,17 @@ function renderState(state) {
                 dealerPoints++; 
                 if(pName === myName) playSound("sfxBuzzer");
             } else if (isMindReader) {
-                pointsEarned += 1;
-                logs.push("<span style='color:#805ad5'>🧠 MIND READER (+1 pt)</span>");
+                pointsEarned += 2;
+                logs.push("<span style='color:#805ad5'>🧠 MIND READER (+2 pts)</span>");
                 if(pName === myName) playSound("sfxDing");
             } else if (isVetoed) {
                 logs.push("<span style='color:#e53e3e'>🗑️ VETOED (0 pts)</span>");
                 hasZeroPoints = true;
+                if(pName === myName) playSound("sfxBuzzer");
+            } else if (pData && pData.caught_in_honeypot) {
+                // No survival bonus — see server-side resolve_round.
+                // Bounty stays available; streak is preserved.
+                logs.push("<span style='color:#dd6b20'>🍯 HONEYPOT (0 pts — no survival bonus)</span>");
                 if(pName === myName) playSound("sfxBuzzer");
             } else {
                 pointsEarned += 1;
@@ -429,11 +462,6 @@ function renderState(state) {
                     dealerPoints++;
                 }
             }
-
-            if (pData && pData.caught_in_honeypot && !hasZeroPoints) {
-                pointsEarned -= 1;
-                logs.push("<span style='color:#dd6b20'>🍯 HONEYPOT (-1 pt)</span>");
-            }
             
             if (voteData && voteData.total > 0) {
                 logs.push(`<span style='color:#4a5568'>⚖️ ACCURACY (${voteData.hits}/${voteData.total})</span>`);
@@ -443,7 +471,7 @@ function renderState(state) {
             revealHTML += `
                 <div style="margin-bottom: 10px; padding: 10px; border-radius: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); ${rowStyle}">
                     <div style="display: flex; justify-content: space-between;">
-                        <strong>${pName}: <span style="color:#4a5568">"${pWord}"</span></strong>
+                        <strong>${escapeHTML(pName)}: <span style="color:#4a5568">"${escapeHTML(pWord)}"</span></strong>
                         <strong>Net: ${pointsEarned > 0 ? '+' : ''}${pointsEarned}</strong>
                     </div>
                     <div style="font-size: 0.85em; margin-top: 5px;">${logs.join(' | ')}</div>
@@ -463,7 +491,7 @@ function renderState(state) {
                 revealHTML += `
                     <div style="margin-bottom: 10px; padding: 10px; border-radius: 5px; background: #f0fff4; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                         <div style="display: flex; justify-content: space-between;">
-                            <strong>${pName}: <span style="color:#718096"><em>(VIP Audience)</em></span></strong>
+                            <strong>${escapeHTML(pName)}: <span style="color:#718096"><em>(VIP Audience)</em></span></strong>
                             <strong>Net: +1</strong>
                         </div>
                         <div style="font-size: 0.85em; margin-top: 5px;">${audienceLog}</div>
@@ -474,7 +502,7 @@ function renderState(state) {
         let dealerBanner = `
             <div style="margin-bottom: 20px; padding: 15px; border-radius: 6px; background: #ebf8ff; border: 2px solid #3182ce; text-align: left;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h3 style="margin: 0; color: #2b6cb0;">🃏 Dealer: ${state.dealer}</h3>
+                    <h3 style="margin: 0; color: #2b6cb0;">🃏 Dealer: ${escapeHTML(state.dealer)}</h3>
                     <strong style="font-size: 1.2em; color: ${dealerPoints > 0 ? '#38a169' : '#718096'};">Net: ${dealerPoints > 0 ? '+' : ''}${dealerPoints}</strong>
                 </div>
                 <div style="font-size: 0.9em; margin-top: 5px; color: #4a5568;">
@@ -489,7 +517,7 @@ function renderState(state) {
             state.players.map(p => {
                 let styleClass = p.streak >= 3 ? "gold-streak" : "";
                 let acc = p.vote_accuracy_total > 0 ? ` • ${Math.round((p.vote_accuracy_hits / p.vote_accuracy_total) * 100)}% accurate` : "";
-                return `<div class="${styleClass}">${p.name}: ${p.score} points ${p.streak >= 3 ? '🔥' : ''}${acc}</div>`;
+                return `<div class="${styleClass}">${escapeHTML(p.name)}: ${p.score} points ${p.streak >= 3 ? '🔥' : ''}${acc}</div>`;
             }).join('');
 
     } else if (state.phase === "game_over") {
@@ -500,7 +528,7 @@ function renderState(state) {
         document.getElementById("winnerAnnouncement").innerText = `🏆 ${winner.name} Wins! 🏆`;
         playSound("sfxDing");
         
-        document.getElementById("finalStandings").innerHTML = sortedPlayers.map(p => `<div>${p.name}: <strong>${p.score}</strong> points</div>`).join('');
+        document.getElementById("finalStandings").innerHTML = sortedPlayers.map(p => `<div>${escapeHTML(p.name)}: <strong>${p.score}</strong> points</div>`).join('');
         
         if (isHost) {
             document.getElementById("gameOverControls").style.display = "block";
@@ -542,27 +570,25 @@ function sendBounty() {
     if(w) ws.send(JSON.stringify({ action: "bounty_guess", word: w })); 
 }
 
-function toggleVeto(word) { 
-    // 1. Optimistic UI: Visually force the single-choice instantly for Competitive mode
-    if (lastKnownState && lastKnownState.ruleset === "competitive") {
-        const buttons = document.getElementById("tribunalWords").querySelectorAll("button");
-        buttons.forEach(btn => {
-            if (btn.innerText === word) {
-                // Toggle the clicked button
-                if (btn.style.backgroundColor === "rgb(229, 62, 62)" || btn.style.backgroundColor === "#e53e3e") {
-                    btn.style.backgroundColor = "#edf2f7";
-                    btn.style.color = "black";
-                } else {
-                    btn.style.backgroundColor = "#e53e3e";
-                    btn.style.color = "white";
-                }
-            } else {
-                // Force deselect all other buttons instantly
-                btn.style.backgroundColor = "#edf2f7";
-                btn.style.color = "black";
+function toggleVeto(word) {
+    const competitive = lastKnownState && lastKnownState.ruleset === "competitive";
+    const buttons = document.getElementById("tribunalWords").querySelectorAll("button.tribunal-vote");
+    buttons.forEach(btn => {
+        if (btn.innerText !== word) {
+            if (competitive) {
+                btn.classList.remove("tribunal-vote--on");
+                btn.classList.add("tribunal-vote--off");
             }
-        });
-    }
+            return;
+        }
+        if (btn.classList.contains("tribunal-vote--on")) {
+            btn.classList.remove("tribunal-vote--on");
+            btn.classList.add("tribunal-vote--off");
+        } else {
+            btn.classList.add("tribunal-vote--on");
+            btn.classList.remove("tribunal-vote--off");
+        }
+    });
 
     // 2. Send the actual command to the server
     ws.send(JSON.stringify({ action: "toggle_veto", word: word })); 

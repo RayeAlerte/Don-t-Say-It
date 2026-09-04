@@ -55,7 +55,11 @@ def test_scoring():
     #
     # "brick":  4 votes → eliminated (VetoVic is vetoed)
     # "tomato": 2 votes → NOT eliminated (MindReaderMax's word survives the tribunal)
-    #           DecoyDan voted for the decoy "tomato" → honeypot penalty applies
+    #           DecoyDan and VetoVic both voted for the decoy "tomato".
+    #           - VetoVic already has locked_word="brick" which gets vetoed →
+    #             the vetoed branch fires first, so honeypot is irrelevant for them.
+    #           - DecoyDan locked a safe word ("raspberry") that survives, so
+    #             their honeypot vote costs them the survival bonus (score 0).
     room.veto_votes = {
         "brick":  ["SafeSam", "BountyBob", "TrapTom", "DecoyDan"],
         "tomato": ["DecoyDan", "VetoVic"],
@@ -87,20 +91,23 @@ def test_scoring():
         f"VetoVic expected 0, got {players['VetoVic'].score}"
     print("✅ VetoVic: Vetoed = 0")
 
-    # DecoyDan: voted for decoy "tomato" → honeypot fires FIRST:
-    #   score = max(0, 0 - 1) = 0  (clamp prevents negative debt)
-    # Then scoring: "raspberry" is not trapped/vetoed/timed_out → +1 survive
-    #   Final score = 0 + 1 = 1
-    assert players["DecoyDan"].score == 1, \
-        f"DecoyDan expected 1, got {players['DecoyDan'].score}"
+    # DecoyDan: voted for decoy "tomato" → caught_in_honeypot = True.
+    # Their locked word "raspberry" survives the tribunal, so under the OLD
+    # clamp logic they'd get max(0, 0-1) + 1 = 1 (the honeypot did nothing).
+    # Under the corrected logic, the honeypot flag forfeits the survival
+    # bonus → 0 points for the round.
+    assert players["DecoyDan"].score == 0, \
+        f"DecoyDan expected 0 (honeypot blocks survival), got {players['DecoyDan'].score}"
     assert players["DecoyDan"].caught_in_honeypot == True
-    print("✅ DecoyDan: Honeypot clamped to 0 then Survived (+1) = 1")
+    print("✅ DecoyDan: Honeypot forfeits survival bonus = 0")
 
-    # MindReaderMax: "tomato" matches decoy → Mind Reader immunity (+1), mind_reader flag set
-    assert players["MindReaderMax"].score == 1, \
-        f"MindReaderMax expected 1, got {players['MindReaderMax'].score}"
+    # MindReaderMax: "tomato" matches decoy → Mind Reader (+2 pts + immunity),
+    # mind_reader flag set. Mind Reader is the highest-skill outcome in the
+    # game (divined the dealer's decoy) and pays double the survival bonus.
+    assert players["MindReaderMax"].score == 2, \
+        f"MindReaderMax expected 2, got {players['MindReaderMax'].score}"
     assert players["MindReaderMax"].mind_reader == True
-    print("✅ MindReaderMax: Mind Reader immunity (+1) = 1")
+    print("✅ MindReaderMax: Mind Reader (+2) = 2")
 
     # DealerDan: TrapTom hit the trap (+1), BountyBob farmed bounty (+1) = 2
     assert players["DealerDan"].score == 2, \

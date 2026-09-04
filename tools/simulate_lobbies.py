@@ -12,6 +12,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from Models.game_state import Room, Player
 from logic import round_manager
+from logic.metrics import RoomMetrics
 
 
 class DummyWS:
@@ -133,6 +134,7 @@ def summarize_stats(stats: Dict) -> Dict:
             "avg_eliminations_per_round": sum(eliminations) / len(eliminations) if eliminations else 0,
             "honeypot_hits_total": stats["tribunal_outcomes"]["honeypot_hits"],
         },
+        "guardrail_metrics": stats["guardrails"].snapshot(),
     }
 
 
@@ -148,6 +150,7 @@ def simulate(ruleset: str, lobbies: int, rounds_per_lobby: int, players: int) ->
         "player_actions": {"safe_locks": 0, "bounty_locks": 0, "tribunal_votes": 0},
         "scoring": {"dealer_scores": [], "total_points_awarded": []},
         "tribunal_outcomes": {"eliminations": [], "honeypot_hits": 0},
+        "guardrails": RoomMetrics(),
     }
 
     for lobby_idx in range(lobbies):
@@ -155,6 +158,7 @@ def simulate(ruleset: str, lobbies: int, rounds_per_lobby: int, players: int) ->
         for _ in range(rounds_per_lobby):
             run_round(room, stats)
             round_manager.next_round(room)
+        stats["guardrails"].merge(room.metrics)
 
     return summarize_stats(stats)
 

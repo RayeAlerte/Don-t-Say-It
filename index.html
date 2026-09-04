@@ -47,13 +47,14 @@
             <ul class="scoring-list">
                 <li><strong>✅ Survive:</strong> +1 point for dodging the trap and surviving the Tribunal.</li>
                 <li><strong>🎯 The Bounty:</strong> +1 bonus point for guessing the Trap Word.</li>
-                <li><strong>🍯 The Honeypot:</strong> -1 point for voting for the Dealer's Decoy.</li>
+                <li><strong>🍯 The Honeypot:</strong> 0 points for the round if you vote for the Dealer's Decoy — you forfeit the Survive bonus (bounty still counts).</li>
                 <li><strong>💥 Trapped:</strong> 0 points for the round. The Dealer gets 1 point per trap.</li>
                 <li><strong>💥 Vetoed:</strong> 0 points for the round.</li>
+                <li><strong>🌽 AFK:</strong> 0 points if you fail to lock a Safe Word in time.</li>
             </ul>
             
             <div class="secret-rule">
-                <strong>🧠 Secret Rule (Mind Reader Alliance):</strong> If your Safe Word matches the Dealer's Decoy Word, you are granted absolute immunity and survive the round even if the Tribunal votes you out!
+                <strong>🧠 Secret Rule (Mind Reader Alliance):</strong> If your Safe Word matches the Dealer's Decoy Word, you score <strong>+2 points</strong> and are granted absolute immunity — you survive the round even if the Tribunal votes you out.
             </div>
 
             <div class="btn-container">
@@ -115,7 +116,6 @@
         <input type="text" id="dealerTrap" placeholder="Enter your Trap Word">
         <input type="text" id="dealerDecoy" placeholder="(Optional) The Honeypot Decoy">
         <button onclick="sendTrap()">Lock Trap</button>
-        <div id="toast" class="dealer-toast"></div>
     </div>
 
     <div id="responderWaitPanel" class="panel">
@@ -152,7 +152,6 @@
                     <p style="color: #718096; font-style: italic;">Bounty locked. Waiting for others to finish...</p>
                 </div>
             </div>
-            <div id="toast"></div>
         </div>
     </div>
 

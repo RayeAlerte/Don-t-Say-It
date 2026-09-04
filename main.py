@@ -21,8 +21,14 @@ MAX_PHASE_TIME = 120
 def assign_new_host(room: Room):
     if room.host in room.players:
         return
+    room.metrics.host_reassignments_total += 1
+    connected = [n for n, p in room.players.items() if p.connected]
+    if connected:
+        room.host = connected[0]
+        return
     if room.players:
         room.host = next(iter(room.players.keys()))
+        room.metrics.host_reassignments_to_disconnected += 1
     else:
         room.host = ""
 
@@ -122,7 +128,7 @@ async def broadcast_state(room: Room):
                 "is_dealer": p.is_dealer,
                 "locked": p.locked_word is not None,
                 "bounty_locked": p.bounty_guess is not None,
-                "caught": p.caught_in_honeypot,
+                "caught_in_honeypot": p.caught_in_honeypot,
                 "mind_reader": p.mind_reader,
                 "timed_out": p.timed_out,
                 "vote_accuracy_hits": getattr(p, 'vote_accuracy_hits', 0),
@@ -146,29 +152,79 @@ async def broadcast_state(room: Room):
         except Exception:
             pass
 
+async def attach_player_to_room(room: Room, player_name: str, websocket):
+    """Attach a player to a room after WebSocket.accept().
+
+    Handles name sanitization, ban lookup, session replacement, and mid-game
+    audience promotion. Returns (Player, None) on success or (None, reason)
+    if the join was rejected (the caller must close the socket).
+
+    Side effects:
+    - Increments room.metrics counters for every guardrail that fires.
+    - Sends a "rejected" frame to the *old* socket on session replacement.
+    - Registers the new Player in room.players when it's a fresh join.
+    """
+    clean_name, name_blocked = round_manager.sanitize_player_name(player_name)
+    if not clean_name or clean_name != player_name:
+        room.metrics.xss_name_blocks_total += max(1, name_blocked)
+        return None, "Invalid name. Use letters, numbers, spaces, _ or - (max 20)."
+
+    if player_name in room.banned_names:
+        return None, "You have been banned."
+
+    if player_name in room.players:
+        existing = room.players[player_name]
+        if existing.connected and existing.ws is not None and existing.ws is not websocket:
+            try:
+                await existing.ws.send_json({
+                    "action": "rejected",
+                    "message": "Session replaced by another connection."
+                })
+                await existing.ws.close()
+            except Exception:
+                pass
+            room.metrics.same_name_socket_replacements += 1
+        existing.ws = websocket
+        existing.connected = True
+        return existing, None
+
+    # Late joiners are ALWAYS audience — a fresh "active" mid-game would
+    # never get a dealer slot and would get cornballed every round.
+    if room.phase != "lobby":
+        role = "audience"
+        room.metrics.mid_game_audience_promotions += 1
+    else:
+        role = "audience" if len(room.get_active_players()) >= 15 else "active"
+    player = Player(player_name, websocket, role=role)
+    room.players[player_name] = player
+    return player, None
+
+
 @app.websocket("/ws/{room_code}/{player_name}")
 async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
     await websocket.accept()
-    
+
+    # Pre-validate name so we never spawn a room whose host is unusable.
+    clean_probe, _ = round_manager.sanitize_player_name(player_name)
+    if not clean_probe or clean_probe != player_name:
+        await websocket.send_json({
+            "action": "rejected",
+            "message": "Invalid name. Use letters, numbers, spaces, _ or - (max 20)."
+        })
+        await websocket.close()
+        return
+
     if room_code not in active_rooms:
         active_rooms[room_code] = Room(room_code, host=player_name)
     
     room = active_rooms[room_code]
     room.last_activity = time.time()
-    
-    if player_name in room.banned_names:
-        await websocket.send_json({"action": "rejected", "message": "You have been banned."})
+
+    player, reject_reason = await attach_player_to_room(room, player_name, websocket)
+    if player is None:
+        await websocket.send_json({"action": "rejected", "message": reject_reason})
         await websocket.close()
         return
-
-    if player_name in room.players:
-        room.players[player_name].ws = websocket
-        room.players[player_name].connected = True
-        player = room.players[player_name]
-    else:
-        role = "audience" if len(room.get_active_players()) >= 15 else "active"
-        player = Player(player_name, websocket, role=role)
-        room.players[player_name] = player
 
     await broadcast_state(room)
 
@@ -200,11 +256,18 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
 
                 elif payload.action == "lock_trap" and player.is_dealer:
                     if room.phase == "trap_phase" and payload.prompt and payload.word:
-                        decoy = getattr(payload, "decoy", "") # Safely get decoy
-                        if decoy and round_manager.is_match(payload.word, decoy):
+                        prompt = round_manager.sanitize_prompt(payload.prompt)
+                        trap, trap_blocked = round_manager.sanitize_game_word(payload.word)
+                        decoy_raw = getattr(payload, "decoy", "") or ""
+                        decoy, decoy_blocked = round_manager.sanitize_game_word(decoy_raw)
+                        room.metrics.xss_word_blocks_total += trap_blocked + decoy_blocked
+                        if not prompt or not trap:
+                            await websocket.send_json({"action": "rejected", "message": "Prompt and trap word are required."})
+                            continue
+                        if decoy and round_manager.is_match(trap, decoy):
                             await websocket.send_json({"action": "rejected", "message": "Decoy cannot match the trap word."})
                             continue
-                        round_manager.advance_to_response_phase(room, payload.prompt, payload.word, decoy)
+                        round_manager.advance_to_response_phase(room, prompt, trap, decoy)
                         
                         new_deadline = time.time() + room.response_time
                         room.phase_deadline = new_deadline
@@ -213,16 +276,25 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
                 
                 elif payload.action == "update_decoy" and player.is_dealer:
                     if room.phase == "response_phase" and payload.word:
-                        if round_manager.is_match(payload.word, room.trap_word):
+                        decoy, decoy_blocked = round_manager.sanitize_game_word(payload.word)
+                        room.metrics.xss_word_blocks_total += decoy_blocked
+                        if not decoy:
+                            await websocket.send_json({"action": "rejected", "message": "Decoy word is empty after sanitization."})
+                            continue
+                        if round_manager.is_match(decoy, room.trap_word):
                             await websocket.send_json({"action": "rejected", "message": "Decoy cannot match the trap word."})
                             continue
-                        room.decoy_word = payload.word.strip()
+                        room.decoy_word = decoy
                         await websocket.send_json({"action": "success", "message": "Decoy updated!"})
                         # Don't broadcast, it's a secret
 
                 elif payload.action == "lock_word" and not player.is_dealer and player.role == "active":
                     if room.phase == "response_phase" and payload.word:
-                        word = payload.word.strip()[:25]
+                        word, word_blocked = round_manager.sanitize_game_word(payload.word)
+                        room.metrics.xss_word_blocks_total += word_blocked
+                        if not word:
+                            await websocket.send_json({"action": "rejected", "message": "Safe word is empty after sanitization."})
+                            continue
 
                         # --- NEW: VIP Bypass for the Trap Word ---
                         if round_manager.is_match(word, room.trap_word):
@@ -295,12 +367,20 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
                         if player.role == "active" and player.locked_word is None:
                             await websocket.send_json({"action": "rejected", "message": "Lock a safe word before submitting bounty."})
                             continue
-                        player.bounty_guess = payload.word.strip()[:25]
+                        bounty, bounty_blocked = round_manager.sanitize_game_word(payload.word)
+                        room.metrics.xss_word_blocks_total += bounty_blocked
+                        if not bounty:
+                            await websocket.send_json({"action": "rejected", "message": "Bounty guess is empty after sanitization."})
+                            continue
+                        player.bounty_guess = bounty
                         await websocket.send_json({"action": "success", "message": "Bounty guess locked!"})
                         await broadcast_state(room)
                 
                 elif payload.action == "ping_probe":
-                    await websocket.send_json({"action": "pong_probe", "client_ts": payload.client_ts})
+                    if round_manager.should_rate_limit_ping(player, time.time()):
+                        room.metrics.ping_rate_limited_total += 1
+                    else:
+                        await websocket.send_json({"action": "pong_probe", "client_ts": payload.client_ts})
                 
                 elif payload.action == "latency_update":
                     if payload.latency_ms is not None:
@@ -308,7 +388,11 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
                         player.latency_ms = (player.latency_ms * 0.7) + (sample * 0.3)
 
                 elif payload.action == "toggle_veto" and room.phase == "tribunal":
-                    if payload.word and player.role == "active" and payload.word in room.words_to_vote:
+                    if not round_manager.can_cast_tribunal_vote(player):
+                        if player.is_dealer:
+                            room.metrics.dealer_vote_rejections += 1
+                        continue
+                    if payload.word and payload.word in room.words_to_vote:
                         word = payload.word
                         if room.ruleset == "competitive":
                             currently_selected = player.name in room.veto_votes.get(word, [])

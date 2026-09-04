@@ -129,10 +129,15 @@ def test_idempotency_guard():
     print("✅ Idempotency: second resolve_round call is a safe no-op")
 
 
-def test_honeypot_clamp_prevents_negative_score():
+def test_honeypot_blocks_survival_bonus():
     """
-    A player who votes for the decoy starts at score 0.
-    Honeypot penalty: max(0, 0 - 1) = 0 — score must not go below zero.
+    A player at score 0 who votes for the decoy but locks a safe word must
+    end the round at 0 pts (survival bonus forfeited), not +1.
+
+    Historical note: the previous implementation used max(0, score-1) which
+    clamped correctly but let the +1 survival bonus fire afterwards, so
+    honeypot voters at score 0 silently gained +1. This test guards the fix
+    that treats the honeypot as a scoring-branch flag instead.
     """
     room = make_room(["p1", "p2", "p3"], host="p1")
     room.ruleset = "classic"
@@ -151,10 +156,12 @@ def test_honeypot_clamp_prevents_negative_score():
     room.veto_votes = {"blue": ["p2"]}
     round_manager.resolve_round(room)
 
-    assert room.players["p2"].score >= 0, \
-        f"Score went negative: {room.players['p2'].score}"
+    assert room.players["p2"].score == 0, \
+        f"Honeypot voter must score 0, got {room.players['p2'].score}"
     assert room.players["p2"].caught_in_honeypot == True
-    print(f"✅ Honeypot clamp: p2 score = {room.players['p2'].score} (≥ 0)")
+    # p3 didn't vote for the decoy → they still get the survival bonus.
+    assert room.players["p3"].score == 1
+    print(f"✅ Honeypot blocks survival: p2={room.players['p2'].score} p3={room.players['p3'].score}")
 
 
 def test_mind_reader_timed_out_player_gets_no_immunity():
@@ -192,6 +199,6 @@ if __name__ == "__main__":
     test_competitive_threshold_and_max_removals()
     test_classic_majority_behavior_unchanged()
     test_idempotency_guard()
-    test_honeypot_clamp_prevents_negative_score()
+    test_honeypot_blocks_survival_bonus()
     test_mind_reader_timed_out_player_gets_no_immunity()
     print("\n🎉 ALL RULESET TESTS PASSED!")

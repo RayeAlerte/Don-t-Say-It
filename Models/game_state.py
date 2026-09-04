@@ -2,6 +2,8 @@ from typing import Dict, List, Optional
 from fastapi import WebSocket
 import time
 
+from logic.metrics import RoomMetrics
+
 class Player:
     def __init__(self, name: str, ws: WebSocket, role: str = "active"):
         self.name = name
@@ -19,6 +21,7 @@ class Player:
         self.is_dealer: bool = False
         self.timed_out: bool = False 
         self.disconnect_time: float = 0.0
+        self.last_ping_ts: Optional[float] = None
         
         # NEW: Round specific UI flags
         self.caught_in_honeypot: bool = False
@@ -62,6 +65,7 @@ class Room:
         self.veto_votes: Dict[str, List[str]] = {} # NEW: Tracks who voted for what
         self.vetoed_words: List[str] = [] # NEW: Words that officially died
         self.vote_accuracy_round: Dict[str, Dict[str, float]] = {}
+        self.metrics: RoomMetrics = RoomMetrics()
 
     def get_active_players(self):
         return {k: v for k, v in self.players.items() if v.role == "active"}
