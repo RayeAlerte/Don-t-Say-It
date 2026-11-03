@@ -23,42 +23,29 @@
 
     <div id="instructions">
         <div class="instructions-modal">
-            <h1>📖 How to Play</h1>
+            <h1>How to Play</h1>
+            <p class="lede">Don't say the obvious answer.</p>
 
-            <p><strong>The Premise:</strong> One player is the Dealer; everyone else is trying to survive. The Dealer sets a trap, and you have time to dodge it.</p>
+            <p class="phase-desc"><strong class="phase-dealer">Dealer</strong> names a prompt and bans the obvious answer. That's the <strong>Trap</strong>.</p>
+            <p class="phase-desc"><strong class="phase-response">You</strong> lock a different answer that fits. First lock owns the word. Then guess the Trap — the <strong>Bounty</strong>.</p>
+            <p class="phase-desc"><strong class="phase-tribunal">Tribunal</strong> votes out answers that don't fit. One is the <strong>Decoy</strong>. Vote for it and you lose your survival point.</p>
 
-            <h3 class="phase-dealer">🃏 Phase 1: The Dealer's Trap</h3>
-            <p class="phase-desc">The Dealer chooses a <strong>Prompt</strong> and secretly locks in a forbidden answer (the <strong>Trap Word</strong>).<br>
-            <span class="example-text">Example: "Name a fast food chain" | Trap Word: "McDonalds"</span><br>
-            The Dealer also sets a secret <strong>Decoy Word</strong> to trick other players during the tribunal.</p>
-
-            <h3 class="phase-response">🏃 Phase 2: The Response</h3>
-            <p class="phase-desc">As a Responder, you have two jobs:<br>
-            <strong>Survive:</strong> Write <strong>Safe Words</strong> that fit the Prompt.<br> 
-            If you type the <strong>Trap Word</strong>, you explode and forfeit the round.<br>
-            Be quick—no two players can lock in the same word!<br><br>
-            <strong>Get Them Back:</strong> Once you are safe, guess the Dealer's <strong>Trap Word</strong> for a point bonus. <br><em>(Note: You only get the Bounty point if you survive the whole round.)</em></p>
-
-            <h3 class="phase-tribunal">⚖️ Phase 3: The Tribunal</h3>
-            <p class="phase-desc">The Safe Words are shown to the players. Veto any words that don't fit the Prompt.<br>
-            ⚠️ The Dealer's <strong>Decoy Word</strong> is hiding in this list! If you vote for the Decoy, you lose points.</p>
-
-            <h3 class="scoring-header">🏆 Scoring Breakdown</h3>
+            <h3 class="scoring-header">Points</h3>
             <ul class="scoring-list">
-                <li><strong>✅ Survive:</strong> +1 point for dodging the trap and surviving the Tribunal.</li>
-                <li><strong>🎯 The Bounty:</strong> +1 bonus point for guessing the Trap Word.</li>
-                <li><strong>🍯 The Honeypot:</strong> 0 points for the round if you vote for the Dealer's Decoy — you forfeit the Survive bonus (bounty still counts).</li>
-                <li><strong>💥 Trapped:</strong> 0 points for the round. The Dealer gets 1 point per trap.</li>
-                <li><strong>💥 Vetoed:</strong> 0 points for the round.</li>
-                <li><strong>🌽 AFK:</strong> 0 points if you fail to lock a Safe Word in time.</li>
+                <li><strong>+1</strong> survive the vote · <strong>+1</strong> guess the Trap</li>
+                <li><strong>+2</strong> you wrote the Decoy. Votes can't kill it.</li>
+                <li><strong>0</strong> for the Trap, a vote-out, a timeout, or a Decoy vote. The Bounty still counts.</li>
+                <li><strong>Dealer</strong> +1 per Trap hit, +1 per Bounty (max 2).</li>
             </ul>
-            
-            <div class="secret-rule">
-                <strong>🧠 Secret Rule (Mind Reader Alliance):</strong> If your Safe Word matches the Dealer's Decoy Word, you score <strong>+2 points</strong> and are granted absolute immunity — you survive the round even if the Tribunal votes you out.
-            </div>
+
+            <h3 class="scoring-header">Two modes</h3>
+            <ul class="scoring-list">
+                <li><strong>Classic</strong> — veto as many as you want. More than half the room has to agree.</li>
+                <li><strong>Competitive</strong> — one veto. Only a few words can die.</li>
+            </ul>
 
             <div class="btn-container">
-                <button class="btn-start" onclick="closeInstructions()">Got it, let's play!</button>
+                <button class="btn-start" onclick="closeInstructions()">Let's play</button>
             </div>
         </div>
     </div>
@@ -78,6 +65,7 @@
 
     <div id="connectPanel" class="panel active-panel">
         <h2>Join Game</h2>
+        <p class="field-hint">Don't say the obvious answer.</p>
         <input type="text" id="roomCode" placeholder="Room Code (e.g., ABCD)" value="ABCD"><br>
         <input type="text" id="playerName" placeholder="Your Name"><br>
         <button onclick="connect()">Connect</button>
@@ -90,9 +78,12 @@
             <label for="rulesetSelect"><strong>Ruleset:</strong></label>
             <select id="rulesetSelect" onchange="setRuleset()" style="padding: 8px; border-radius: 4px; border: 1px solid #cbd5e0;">
                 <option value="classic">Classic</option>
-                <option value="competitive">Competitive (A/B)</option>
+                <option value="competitive">Competitive</option>
             </select>
-            <div id="rulesetDescription"></div>
+            <div id="rulesetDescription">
+                <p class="mode-line mode-line--on" data-ruleset="classic"><strong>Classic.</strong> Veto as many bad answers as you want. A word dies only if more than half the room agrees.</p>
+                <p class="mode-line" data-ruleset="competitive"><strong>Competitive.</strong> One veto each. Enough people have to pile on, and only a few words can die.</p>
+            </div>
         </div>
         <div id="timerControls">
             <strong>Round Timer Settings</strong>
@@ -110,46 +101,49 @@
     </div>
 
     <div id="dealerTrapPanel" class="panel">
-        <h2 style="color: #c53030;">You are the Dealer!</h2>
-        <button class="btn-secondary" onclick="requestRandomPrompt()" style="font-size: 0.8em; margin-bottom: 10px;">🎲 Help! Give me a prompt</button><br>
-        <input type="text" id="dealerPrompt" placeholder="Enter the Prompt (e.g., A red fruit)">
-        <input type="text" id="dealerTrap" placeholder="Enter your Trap Word">
-        <input type="text" id="dealerDecoy" placeholder="(Optional) The Honeypot Decoy">
+        <h2 style="color: #c53030;">You're the Dealer</h2>
+        <p class="field-hint">Name a prompt. Ban the obvious answer. Plant a fake for the vote.</p>
+        <button class="btn-secondary" onclick="requestRandomPrompt()" style="font-size: 0.8em; margin-bottom: 10px;">🎲 Give me a prompt</button><br>
+        <input type="text" id="dealerPrompt" placeholder="Prompt — Name a fast food chain">
+        <input type="text" id="dealerTrap" placeholder="Trap — the answer they'll all want">
+        <input type="text" id="dealerDecoy" placeholder="Decoy — a fake answer (optional)">
         <button onclick="sendTrap()">Lock Trap</button>
     </div>
 
     <div id="responderWaitPanel" class="panel">
-        <h2>Get Ready...</h2>
-        <p>Waiting for <strong id="currentDealerName"></strong> to set the trap.</p>
+        <h2>Get ready</h2>
+        <p><strong id="currentDealerName"></strong> is setting the trap.</p>
+        <p class="field-hint">Don't say the obvious answer.</p>
     </div>
 
     <div id="playPanel" class="panel">
         <h2 id="displayPrompt" style="color: #2b6cb0;"></h2>
         
         <div id="dealerWaitZone" style="display:none;">
-            <p style="margin-top: 10px;">Your trap is set.</p>
-            <p style="margin-top: 10px; color: #718096; font-size: 0.9em;">Need to update your Honeypot Decoy?</p>
-            <input type="text" id="midRoundDecoy" placeholder="Enter Decoy Word">
-            <button onclick="updateDecoy()">Set Decoy</button>
+            <p class="field-hint">Trap is set. They're writing.</p>
+            <p class="field-hint">Plant a Decoy before the vote?</p>
+            <input type="text" id="midRoundDecoy" placeholder="A fake answer">
+            <button onclick="updateDecoy()">Plant Decoy</button>
         </div>
 
         <div id="responderPlayZone" style="display:none;">
-            <div id="audienceNotice" style="display:none; color: #718096; margin-bottom: 10px;">
-                <em>You are in the VIP Audience. You cannot be eliminated, but you can guess the Bounty!</em>
+            <div id="audienceNotice" class="field-hint" style="display:none;">
+                You joined mid-game. Guess the Trap for a point — you can't be voted out.
             </div>
             
             <div id="safeWordZone">
-                <input type="text" id="safeWord" placeholder="Enter your Safe Word">
-                <button onclick="sendSafeWord()">Lock Safe Word</button>
+                <p class="field-hint">Answer the prompt. Skip the obvious one — first lock owns the word.</p>
+                <input type="text" id="safeWord" placeholder="Your answer">
+                <button onclick="sendSafeWord()">Lock Answer</button>
             </div>
             <div id="bountyZone" style="display:none; margin-top: 15px;">
                 <div id="bountyInputZone">
-                    <p style="color: green;">Try for the Bonus Bounty:</p>
-                    <input type="text" id="bountyWord" placeholder="Guess the Dealer's Trap Word">
+                    <p class="field-hint bounty-hint">Guess the Trap for +1.</p>
+                    <input type="text" id="bountyWord" placeholder="What did they ban?">
                     <button onclick="sendBounty()">Lock Bounty</button>
                 </div>
                 <div id="bountyWaitZone" style="display:none;">
-                    <p style="color: #718096; font-style: italic;">Bounty locked. Waiting for others to finish...</p>
+                    <p class="field-hint">Bounty locked. Hang tight.</p>
                 </div>
             </div>
         </div>
@@ -158,15 +152,15 @@
     <div id="tribunalPanel" class="panel">
         <h2 style="color: #dd6b20;">The Tribunal</h2>
         <h3 id="tribunalPromptDisplay" style="color: #2b6cb0; font-style: italic;"></h3>
-        <p>Which of these definitely do not fit the prompt?</p>
+        <p id="tribunalHint" class="field-hint">Tap every answer that doesn't fit. One is the Decoy — vote for it and you lose your point.</p>
         <div id="tribunalWords" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 15px;">
             </div>
     </div>
 
     <div id="revealPanel" class="panel">
         <h2>Round Reveal</h2>
-        <h3 style="color: #c53030;margin: 5px 0;">Trap Word: <span id="revealTrapWord"></span></h3>
-        <p style="color: #dd6b20; font-style: italic;">Honeypot Decoy: <span id="revealDecoyWord">None</span></p>
+        <h3 style="color: #c53030;margin: 5px 0;">Trap: <span id="revealTrapWord"></span></h3>
+        <p style="color: #dd6b20; font-style: italic;">Decoy: <span id="revealDecoyWord">None</span></p>
         <div id="revealList" style="text-align: left; background: #f7fafc; padding: 10px; border-radius: 4px;"></div>
         
         <div id="finalScoreboard" class="scoreboard"></div>
