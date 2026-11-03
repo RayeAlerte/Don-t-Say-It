@@ -264,8 +264,8 @@ function renderState(state) {
         
         document.getElementById("lobbyPlayers").innerHTML = state.players.map(p => {
             let styleClass = p.streak >= 3 ? "gold-streak" : "";
-            let tag = p.role === "audience" ? `<span class="audience-tag">(VIP Audience)</span>` : "";
-            let acc = p.vote_accuracy_total > 0 ? ` • Tribunal IQ: ${Math.round((p.vote_accuracy_hits / p.vote_accuracy_total) * 100)}%` : "";
+            let tag = p.role === "audience" ? `<span class="audience-tag">(audience)</span>` : "";
+            let acc = p.vote_accuracy_total > 0 ? ` • ${Math.round((p.vote_accuracy_hits / p.vote_accuracy_total) * 100)}% vote accuracy` : "";
             let kickBtn = (isHost && p.name !== myName) ? `<button class="btn-kick" onclick='kickPlayer(${JSON.stringify(p.name)})'>Kick</button>` : "";
             return `<div class="${styleClass}">${escapeHTML(p.name)} ${tag}${acc} ${kickBtn}</div>`;
         }).join('');
@@ -279,14 +279,15 @@ function renderState(state) {
         const revealTimeInput = document.getElementById("revealTimeInput");
         const saveTimersBtn = document.getElementById("saveTimersBtn");
         
-        rulesetSelect.value = state.ruleset || "classic";
+        const activeRuleset = state.ruleset || "classic";
+        rulesetSelect.value = activeRuleset;
         dealerTimeInput.value = state.dealer_time || 30;
         responseTimeInput.value = state.response_time || 10;
         tribunalTimeInput.value = state.tribunal_time || 10;
         revealTimeInput.value = state.reveal_time || 10;
-        rulesetDescription.innerText = (state.ruleset === "competitive")
-            ? "Competitive: one tribunal vote per player, dynamic elimination, 2 veto max."
-            : "Classic: multi-vote tribunal with majority elimination.";
+        rulesetDescription.querySelectorAll(".mode-line").forEach(el => {
+            el.classList.toggle("mode-line--on", el.dataset.ruleset === activeRuleset);
+        });
             
         if (playerCount < 3) {
             document.getElementById("lobbyWaitText").innerText = `Waiting for active players... (${playerCount}/3)`;
@@ -331,7 +332,7 @@ function renderState(state) {
     
     } else if (state.phase === "response_phase") {
         switchPanel("playPanel");
-        document.getElementById("displayPrompt").innerText = `Prompt: "${state.prompt}"`;
+        document.getElementById("displayPrompt").innerText = `"${state.prompt}"`;
         
         if (isDealer) {
             document.getElementById("dealerWaitZone").style.display = "block";
@@ -348,7 +349,7 @@ function renderState(state) {
                     document.getElementById("bountyZone").style.display = "block";
                     document.getElementById("bountyWord").value = "";
                 } else {
-                    document.getElementById("bountyZone").innerHTML = "<p>Bounty locked. Waiting for round to end...</p>";
+                    document.getElementById("bountyZone").innerHTML = "<p class=\"field-hint\">Bounty locked. Hang tight.</p>";
                 }
             } else {
                 document.getElementById("audienceNotice").style.display = "none";
@@ -376,13 +377,21 @@ function renderState(state) {
         switchPanel("tribunalPanel");
         
         document.getElementById("tribunalPromptDisplay").innerText = `"${state.prompt}"`;
+        const tribunalHint = document.getElementById("tribunalHint");
+        if (isDealer) {
+            tribunalHint.innerText = "You set the trap. Watch the vote — you can't join it.";
+        } else if (state.ruleset === "competitive") {
+            tribunalHint.innerText = "One veto. Pick the answer that least fits. Hit the Decoy and you lose your point.";
+        } else {
+            tribunalHint.innerText = "Tap every answer that doesn't fit. One is the Decoy — vote for it and you lose your point.";
+        }
         
         let html = "";
         if (isDealer) {
             // Dealers see the trap and the decoy — letting them vote would poison
             // the tribunal. Server rejects their toggle_veto anyway; the UI just
             // reflects that with a read-only view.
-            html = `<p style="color:#718096; font-style: italic;">You are the Dealer. Watch the tribunal — you cannot vote.</p>`;
+            html = "";
             for (const word of state.words_to_vote) {
                 html += `<button type="button" class="tribunal-vote tribunal-vote--off" disabled>${escapeHTML(word)}</button>`;
             }
@@ -395,7 +404,7 @@ function renderState(state) {
         }
         
         if (state.words_to_vote.length === 0) {
-            html = "<p>No words to review!</p>";
+            html = "<p class=\"field-hint\">Nothing to vote on.</p>";
         }
         document.getElementById("tribunalWords").innerHTML = html;
 
@@ -426,37 +435,37 @@ function renderState(state) {
             // survival. Tests exercise the parity via a Python mirror in
             // tests/test_edge_cases.py::_client_side_points.
             if (pData && pData.timed_out) {
-                logs.push("<span style='color:#e53e3e'>🌽 AFK (0 pts)</span>");
+                logs.push("<span style='color:#e53e3e'>🌽 TOO SLOW (0)</span>");
                 hasZeroPoints = true;
             } else if (isTrapped) {
-                logs.push("<span style='color:#e53e3e'>💥 TRAPPED (0 pts)</span>");
+                logs.push("<span style='color:#e53e3e'>💥 HIT THE TRAP (0)</span>");
                 hasZeroPoints = true;
                 trappedCount++;
                 dealerPoints++; 
                 if(pName === myName) playSound("sfxBuzzer");
             } else if (isMindReader) {
                 pointsEarned += 2;
-                logs.push("<span style='color:#805ad5'>🧠 MIND READER (+2 pts)</span>");
+                logs.push("<span style='color:#805ad5'>🧠 MIND READER (+2)</span>");
                 if(pName === myName) playSound("sfxDing");
             } else if (isVetoed) {
-                logs.push("<span style='color:#e53e3e'>🗑️ VETOED (0 pts)</span>");
+                logs.push("<span style='color:#e53e3e'>🗑️ VOTED OUT (0)</span>");
                 hasZeroPoints = true;
                 if(pName === myName) playSound("sfxBuzzer");
             } else if (pData && pData.caught_in_honeypot) {
                 // No survival bonus — see server-side resolve_round.
                 // Bounty stays available; streak is preserved.
-                logs.push("<span style='color:#dd6b20'>🍯 HONEYPOT (0 pts — no survival bonus)</span>");
+                logs.push("<span style='color:#dd6b20'>🍯 VOTED THE DECOY (0)</span>");
                 if(pName === myName) playSound("sfxBuzzer");
             } else {
                 pointsEarned += 1;
-                logs.push("<span style='color:#38a169'>✅ SURVIVED (+1 pt)</span>");
+                logs.push("<span style='color:#38a169'>✅ SURVIVED (+1)</span>");
                 if(pName === myName) playSound("sfxDing");
             }
 
             let bounty = state.revealed_bounties[pName];
             if (bounty && isMatch(bounty, state.trap_word) && !hasZeroPoints) {
                 pointsEarned += 1;
-                logs.push("<span style='color:#38a169'>🎯 BOUNTY (+1 pt)</span>");
+                logs.push("<span style='color:#38a169'>🎯 BOUNTY (+1)</span>");
                 if (bountyFarmedCount < 2) {
                     bountyFarmedCount++;
                     dealerPoints++;
@@ -464,7 +473,7 @@ function renderState(state) {
             }
             
             if (voteData && voteData.total > 0) {
-                logs.push(`<span style='color:#4a5568'>⚖️ ACCURACY (${voteData.hits}/${voteData.total})</span>`);
+                logs.push(`<span style='color:#4a5568'>⚖️ ${voteData.hits}/${voteData.total} votes right</span>`);
             }
 
             let rowStyle = isMindReader ? "background: #faf5ff; border-left: 4px solid #805ad5;" : "background: #fff;";
@@ -483,7 +492,7 @@ function renderState(state) {
             if (!pData || pData.role !== "audience") continue;
             
             if (bounty && isMatch(bounty, state.trap_word)) {
-                let audienceLog = "<span style='color:#38a169'>🎯 BOUNTY (+1 pt)</span>";
+                let audienceLog = "<span style='color:#38a169'>🎯 BOUNTY (+1)</span>";
                 if (bountyFarmedCount < 2) {
                     bountyFarmedCount++;
                     dealerPoints++;
@@ -491,7 +500,7 @@ function renderState(state) {
                 revealHTML += `
                     <div style="margin-bottom: 10px; padding: 10px; border-radius: 5px; background: #f0fff4; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                         <div style="display: flex; justify-content: space-between;">
-                            <strong>${escapeHTML(pName)}: <span style="color:#718096"><em>(VIP Audience)</em></span></strong>
+                            <strong>${escapeHTML(pName)}: <span style="color:#718096"><em>(audience)</em></span></strong>
                             <strong>Net: +1</strong>
                         </div>
                         <div style="font-size: 0.85em; margin-top: 5px;">${audienceLog}</div>
@@ -506,7 +515,7 @@ function renderState(state) {
                     <strong style="font-size: 1.2em; color: ${dealerPoints > 0 ? '#38a169' : '#718096'};">Net: ${dealerPoints > 0 ? '+' : ''}${dealerPoints}</strong>
                 </div>
                 <div style="font-size: 0.9em; margin-top: 5px; color: #4a5568;">
-                    ${trappedCount} Trapped | ${bountyFarmedCount} Bounties Farmed (Max 2)
+                    ${trappedCount} hit the trap · ${bountyFarmedCount} ${bountyFarmedCount === 1 ? "bounty" : "bounties"} (max 2)
                 </div>
             </div>`;
 
@@ -516,7 +525,7 @@ function renderState(state) {
         document.getElementById("finalScoreboard").innerHTML = "<h3>Scoreboard</h3>" + 
             state.players.map(p => {
                 let styleClass = p.streak >= 3 ? "gold-streak" : "";
-                let acc = p.vote_accuracy_total > 0 ? ` • ${Math.round((p.vote_accuracy_hits / p.vote_accuracy_total) * 100)}% accurate` : "";
+                let acc = p.vote_accuracy_total > 0 ? ` • ${Math.round((p.vote_accuracy_hits / p.vote_accuracy_total) * 100)}% vote accuracy` : "";
                 return `<div class="${styleClass}">${escapeHTML(p.name)}: ${p.score} points ${p.streak >= 3 ? '🔥' : ''}${acc}</div>`;
             }).join('');
 
@@ -556,7 +565,7 @@ function updateDecoy() {
     if(d) {
         ws.send(JSON.stringify({ action: "update_decoy", word: d }));
         document.getElementById("midRoundDecoy").value = "";
-        showToast("Decoy updated!");
+        showToast("Decoy planted!");
     }
 }
 

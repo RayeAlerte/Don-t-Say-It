@@ -262,10 +262,10 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
                         decoy, decoy_blocked = round_manager.sanitize_game_word(decoy_raw)
                         room.metrics.xss_word_blocks_total += trap_blocked + decoy_blocked
                         if not prompt or not trap:
-                            await websocket.send_json({"action": "rejected", "message": "Prompt and trap word are required."})
+                            await websocket.send_json({"action": "rejected", "message": "You need a prompt and a Trap."})
                             continue
                         if decoy and round_manager.is_match(trap, decoy):
-                            await websocket.send_json({"action": "rejected", "message": "Decoy cannot match the trap word."})
+                            await websocket.send_json({"action": "rejected", "message": "The Decoy has to be a different word than the Trap."})
                             continue
                         round_manager.advance_to_response_phase(room, prompt, trap, decoy)
                         
@@ -279,13 +279,13 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
                         decoy, decoy_blocked = round_manager.sanitize_game_word(payload.word)
                         room.metrics.xss_word_blocks_total += decoy_blocked
                         if not decoy:
-                            await websocket.send_json({"action": "rejected", "message": "Decoy word is empty after sanitization."})
+                            await websocket.send_json({"action": "rejected", "message": "Decoy needs letters or numbers."})
                             continue
                         if round_manager.is_match(decoy, room.trap_word):
-                            await websocket.send_json({"action": "rejected", "message": "Decoy cannot match the trap word."})
+                            await websocket.send_json({"action": "rejected", "message": "The Decoy has to be a different word than the Trap."})
                             continue
                         room.decoy_word = decoy
-                        await websocket.send_json({"action": "success", "message": "Decoy updated!"})
+                        await websocket.send_json({"action": "success", "message": "Decoy planted!"})
                         # Don't broadcast, it's a secret
 
                 elif payload.action == "lock_word" and not player.is_dealer and player.role == "active":
@@ -293,13 +293,13 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
                         word, word_blocked = round_manager.sanitize_game_word(payload.word)
                         room.metrics.xss_word_blocks_total += word_blocked
                         if not word:
-                            await websocket.send_json({"action": "rejected", "message": "Safe word is empty after sanitization."})
+                            await websocket.send_json({"action": "rejected", "message": "Answers need letters or numbers."})
                             continue
 
                         # --- NEW: VIP Bypass for the Trap Word ---
                         if round_manager.is_match(word, room.trap_word):
                             player.locked_word = word
-                            await websocket.send_json({"action": "trapped", "message": "💥 TRAPPED! You hit the Trap Word!"})
+                            await websocket.send_json({"action": "trapped", "message": "💥 You said the Trap. No points this round."})
                                                     
                             # Check if this trap victim was the final player to lock in
                             if room.all_responders_locked():
@@ -338,7 +338,7 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
                                 break
                                 
                         if is_taken:
-                            await websocket.send_json({"action": "rejected", "message": f"Too slow! '{thief}' took something similar."})
+                            await websocket.send_json({"action": "rejected", "message": f"Too slow! {thief} already locked something like that."})
                         else:
                             if steal_from:
                                 old_word, holder = steal_from
@@ -346,14 +346,14 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
                                 room.lock_times.pop(old_word, None)
                                 holder.locked_word = None
                                 try:
-                                    await holder.ws.send_json({"action": "rejected", "message": "Your lock was displaced by latency compensation. Lock a new safe word!"})
+                                    await holder.ws.send_json({"action": "rejected", "message": "Too slow — someone beat you to it. Lock a new answer!"})
                                 except Exception:
                                     pass
                             
                             room.locked_words[word] = player.name
                             room.lock_times[word] = now
                             player.locked_word = word
-                            await websocket.send_json({"action": "success", "message": "Word locked!"})
+                            await websocket.send_json({"action": "success", "message": "Locked! Now guess the Trap."})
                             
                             if room.all_responders_locked():
                                 round_manager.advance_to_tribunal(room)
@@ -365,15 +365,15 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
                 elif payload.action == "bounty_guess" and not player.is_dealer:
                     if room.phase == "response_phase" and player.bounty_guess is None and payload.word:
                         if player.role == "active" and player.locked_word is None:
-                            await websocket.send_json({"action": "rejected", "message": "Lock a safe word before submitting bounty."})
+                            await websocket.send_json({"action": "rejected", "message": "Lock an answer before you guess the Trap."})
                             continue
                         bounty, bounty_blocked = round_manager.sanitize_game_word(payload.word)
                         room.metrics.xss_word_blocks_total += bounty_blocked
                         if not bounty:
-                            await websocket.send_json({"action": "rejected", "message": "Bounty guess is empty after sanitization."})
+                            await websocket.send_json({"action": "rejected", "message": "Guesses need letters or numbers."})
                             continue
                         player.bounty_guess = bounty
-                        await websocket.send_json({"action": "success", "message": "Bounty guess locked!"})
+                        await websocket.send_json({"action": "success", "message": "Bounty locked!"})
                         await broadcast_state(room)
                 
                 elif payload.action == "ping_probe":
@@ -417,7 +417,12 @@ async def game_endpoint(websocket: WebSocket, room_code: str, player_name: str):
                 elif payload.action == "set_ruleset" and player.name == room.host:
                     if room.phase == "lobby" and payload.ruleset in ("classic", "competitive"):
                         room.ruleset = payload.ruleset
-                        await websocket.send_json({"action": "success", "message": f"Ruleset set to {room.ruleset}."})
+                        mode_blurb = (
+                            "Classic: veto as many as you want."
+                            if room.ruleset == "classic"
+                            else "Competitive: one veto."
+                        )
+                        await websocket.send_json({"action": "success", "message": mode_blurb})
                         await broadcast_state(room)
                 
                 elif payload.action == "set_timers" and player.name == room.host:
